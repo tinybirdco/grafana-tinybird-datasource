@@ -1,9 +1,10 @@
 import React from 'react';
-import { Button, Icon, stylesFactory, useTheme } from '@grafana/ui';
+import { Button, Icon, InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory, useTheme } from '@grafana/ui';
 import { GrafanaTheme, QueryEditorProps } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from '../datasource';
-import { Pair, TinybirdOptions, TinybirdQuery } from '../types';
+import { Pair, SUPPORTED_OUTPUT_FORMATS, TinybirdOptions, TinybirdQuery } from '../types';
+import { capitalize } from 'lodash';
 
 export function QueryEditor({
   query,
@@ -45,6 +46,32 @@ export function QueryEditor({
 
   return (
     <div className={styles.root}>
+      <InlineFieldRow>
+        <InlineField label="Format as" labelWidth={14}>
+          <Select
+            width={50}
+            options={SUPPORTED_OUTPUT_FORMATS.map((f) => ({ label: capitalize(f), value: f }))}
+            value={query.format}
+            onChange={({ value }) => {
+              onChange({ ...query, format: value || 'table' });
+            }}
+            placeholder="Format as"
+          />
+        </InlineField>
+
+        {query.format === 'timeseries' && (
+          <InlineField
+            label="Extrapolate"
+            labelWidth={14}
+            tooltip="Turn on if you don't like when last data point in time series much lower then previous"
+          >
+            <InlineSwitch
+              value={query.extrapolate}
+              onChange={({ currentTarget: { value } }) => onChange({ ...query, extrapolate: !!value })}
+            />
+          </InlineField>
+        )}
+      </InlineFieldRow>
       {params.length === 0 ? (
         <Button
           variant="secondary"
