@@ -20,17 +20,15 @@ const globalVariables = [
 ];
 
 export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
-  private readonly token: string;
-  private readonly pipeName: string;
-  private readonly tinybirdURL: URL;
+  readonly tinybirdToken: string;
+  readonly tinybirdURL: URL;
 
   constructor(instanceSettings: DataSourceInstanceSettings<TinybirdOptions>) {
     super(instanceSettings);
 
-    this.token = instanceSettings.jsonData.token;
-    this.pipeName = instanceSettings.jsonData.pipeName;
+    this.tinybirdToken = instanceSettings.jsonData.token;
     this.tinybirdURL = new URL(
-      `${instanceSettings.jsonData.endpoint}${instanceSettings.jsonData.endpoint.endsWith('/') ? '' : '/'}v0/pipes/`
+      `${instanceSettings.jsonData.host}${instanceSettings.jsonData.host.endsWith('/') ? '' : '/'}v0/pipes/`
     );
   }
 
@@ -71,9 +69,8 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
   async doRequest(query: TinybirdQuery) {
     const bindings = this.getBindings();
     const variables = getTemplateSrv().getVariables();
-
-    const url = new URL(`${this.tinybirdURL}${this.pipeName}${this.pipeName.endsWith('.json') ? '' : '.json'}`);
-    url.searchParams.set('token', this.token);
+    const url = new URL(`${this.tinybirdURL}${query.pipeName}${query.pipeName.endsWith('.json') ? '' : '.json'}`);
+    url.searchParams.set('token', this.tinybirdToken);
     query.params.forEach(([key, value]) => {
       const globalVariable = globalVariables.find((v) => value.includes(v));
       const customVariable = variables.find((v) => v.name === key);
@@ -91,7 +88,7 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
 
   async testDatasource() {
     const url = new URL(this.tinybirdURL);
-    url.searchParams.set('token', this.token);
+    url.searchParams.set('token', this.tinybirdToken);
     const result = await getBackendSrv().get(url.toString());
 
     return {

@@ -19,11 +19,11 @@ export function ConfigEditor({ options, onOptionsChange }: DataSourcePluginOptio
       <h3 className="page-heading">Tinybird Options</h3>
 
       <InlineFieldRow>
-        <InlineField label="Endpoint" labelWidth={14} tooltip="The URL where your Tinybird Workspace is hosted.">
+        <InlineField label="Host" labelWidth={14} tooltip="The URL where your Tinybird Workspace is hosted.">
           <Input
-            name="endpoint"
+            name="host"
             width={50}
-            value={options.jsonData.endpoint}
+            value={options.jsonData.host}
             onChange={onOptionChange}
             spellCheck={false}
             placeholder="https://api.tinybird.co/"
@@ -41,20 +41,6 @@ export function ConfigEditor({ options, onOptionsChange }: DataSourcePluginOptio
             onChange={onOptionChange}
             spellCheck={false}
             placeholder="p.ey..."
-            required
-          />
-        </InlineField>
-      </InlineFieldRow>
-
-      <InlineFieldRow>
-        <InlineField label="Pipe name" labelWidth={14} tooltip="Tinybird pipe name">
-          <Input
-            name="pipeName"
-            width={50}
-            value={options.jsonData.pipeName}
-            onChange={onOptionChange}
-            spellCheck={false}
-            placeholder="ds"
             required
           />
         </InlineField>

@@ -1,19 +1,25 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Icon, InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory, useTheme } from '@grafana/ui';
-import { GrafanaTheme, QueryEditorProps } from '@grafana/data';
+import { GrafanaTheme, QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from '../datasource';
-import { Pair, SUPPORTED_OUTPUT_FORMATS, TinybirdOptions, TinybirdQuery } from '../types';
+import { OutputFormat, Pair, SUPPORTED_OUTPUT_FORMATS, TinybirdOptions, TinybirdQuery } from '../types';
 import { capitalize } from 'lodash';
+import { getBackendSrv } from '@grafana/runtime';
 
 export function QueryEditor({
   query,
   onChange,
-  onRunQuery,
+  datasource,
 }: QueryEditorProps<DataSource, TinybirdQuery, TinybirdOptions>) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const params = query.params ?? [];
+  const [pipeNameOptions, setPipeNameOptions] = useState<Array<SelectableValue<string>>>([]);
+  const formatAsOptions: Array<SelectableValue<OutputFormat>> = SUPPORTED_OUTPUT_FORMATS.map((f) => ({
+    label: capitalize(f),
+    value: f,
+  }));
 
   const onParamsChange = (params: Array<Pair<string, string>>) => {
     onChange({ ...query, params });
@@ -44,16 +50,38 @@ export function QueryEditor({
     onParamsChange([...params.slice(0, i), ...params.slice(i + 1)]);
   };
 
+  useEffect(() => {
+    const url = new URL(datasource.tinybirdURL);
+    url.searchParams.set('token', datasource.tinybirdToken);
+
+    getBackendSrv()
+      .get(url.toString())
+      .then(({ pipes }) => pipes.map((pipe: any) => ({ label: pipe.name, value: pipe.name })))
+      .then(setPipeNameOptions);
+  }, [datasource, datasource.tinybirdURL, datasource.tinybirdToken]);
+
   return (
     <div className={styles.root}>
       <InlineFieldRow>
+        <InlineFieldRow>
+          <InlineField label="Pipe name" labelWidth={14} tooltip="Tinybird datasource name">
+            <Select
+              width={50}
+              options={pipeNameOptions}
+              value={query.pipeName}
+              onChange={({ value }) => onChange({ ...query, pipeName: value ?? '' })}
+              placeholder="ds"
+            />
+          </InlineField>
+        </InlineFieldRow>
+
         <InlineField label="Format as" labelWidth={14}>
           <Select
             width={50}
-            options={SUPPORTED_OUTPUT_FORMATS.map((f) => ({ label: capitalize(f), value: f }))}
+            options={formatAsOptions}
             value={query.format}
             onChange={({ value }) => {
-              onChange({ ...query, format: value || 'table' });
+              onChange({ ...query, format: value ?? 'table' });
             }}
             placeholder="Format as"
           />
@@ -101,7 +129,6 @@ export function QueryEditor({
                     <input
                       value={cell}
                       onChange={(e) => updateCell(colIdx, rowIdx, e.currentTarget.value)}
-                      onBlur={() => onRunQuery()}
                       className={styles.input}
                     />
                   </td>
