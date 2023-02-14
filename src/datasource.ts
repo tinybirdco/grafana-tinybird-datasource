@@ -1,23 +1,10 @@
 import { DataQueryRequest, DataQueryResponse, DataSourceApi, DataSourceInstanceSettings } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaults } from 'lodash';
+// eslint-disable-next-line no-restricted-imports
+import moment from 'moment';
 import SqlSeries from 'SqlSeries';
 import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY } from './types';
-
-const globalVariables = [
-  '__dashboard',
-  '__from',
-  '__to',
-  '__interval',
-  '__interval_ms',
-  '__name',
-  '__org',
-  '__user',
-  '__range',
-  '__rate_interval',
-  'timeFilter',
-  '__timeFilter',
-];
 
 export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
   readonly tinybirdToken: string;
@@ -67,16 +54,14 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
   }
 
   async doRequest(query: TinybirdQuery) {
-    const bindings = this.getBindings();
     const variables = getTemplateSrv().getVariables();
     const url = new URL(`${this.tinybirdURL}${query.pipeName}${query.pipeName.endsWith('.json') ? '' : '.json'}`);
     url.searchParams.set('token', this.tinybirdToken);
     query.params.forEach(([key, value]) => {
-      const globalVariable = globalVariables.find((v) => value.includes(v));
       const customVariable = variables.find((v) => v.name === key);
 
-      if (globalVariable) {
-        value = bindings[globalVariable];
+      if (value.includes('__from') || value.includes('__to')) {
+        value = this.parseTimeVariable(value);
       } else if (customVariable) {
         value = (customVariable as any).query;
       }
@@ -97,17 +82,26 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
     };
   }
 
-  getBindings(): Record<string, any> {
-    const getVariable = (name: any): string[] => {
-      const values: string[] = [];
+  parseTimeVariable(variable: string) {
+    const globalName = variable.includes('__from') ? '__from' : '__to';
+    const value = +getTemplateSrv().replace(`$${globalName}`);
 
-      getTemplateSrv().replace(`$${name}`, {}, (value: string | string[]) => {
-        Array.isArray(value) ? values.push(...value) : values.push(value);
-      });
+    if (!variable.includes(':')) {
+      // ${__from}
+      return value.toString();
+    } else if (variable.endsWith(':date}') || variable.endsWith(':date:iso}')) {
+      // ${__from:date}	|| ${__from:date:iso}
+      return moment(value).toISOString();
+    } else if (variable.endsWith(':date:seconds}')) {
+      // ${__from:date:seconds}
+      return moment(value).unix().toString();
+    }
 
-      return values;
-    };
-
-    return Object.fromEntries(globalVariables.map((v) => [v, getVariable(v)]));
+    try {
+      // ${__from:date:YYYY-MM}
+      return moment(value).format(variable.match(/date\:(.*)\}/)![1]);
+    } catch (e) {
+      return value.toString();
+    }
   }
 }
