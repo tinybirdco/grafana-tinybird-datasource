@@ -3535,7 +3535,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:*":
+"@types/react@npm:*, @types/react@npm:^18.0.28":
   version: 18.0.28
   resolution: "@types/react@npm:18.0.28"
   dependencies:
@@ -12844,6 +12844,7 @@ __metadata:
     "@types/jest": "npm:^29.2.2"
     "@types/lodash": "npm:^4.14.188"
     "@types/node": "npm:^18.11.9"
+    "@types/react": "npm:^18.0.28"
     "@typescript-eslint/eslint-plugin": "npm:^5.42.1"
     "@typescript-eslint/parser": "npm:^5.42.1"
     copy-webpack-plugin: "npm:^11.0.0"
