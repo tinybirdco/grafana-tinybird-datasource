@@ -1,66 +1,27 @@
-# Tinybird Grafana data source plugin
+# Tinybird Data Source for Grafana
 
-Allows connection to tinybird API via host & token
+This plugin enables you to use your published Tinybird APIs with Grafana.
 
-## Links
+# Features
 
-[Tinybird web](https://www.tinybird.co/)
-[Tinybird docs](https://www.tinybird.co/docs)
+TODO
 
-## Development
+# Install
 
-### Frontend
+TODO
 
-1. Install dependencies
+# Configure
 
-   ```bash
-   yarn install
-   ```
+TODO
 
-2. Build plugin in development mode and run in watch mode
+# Create your first chart
 
-   ```bash
-   yarn dev
-   ```
+TODO
 
-3. Build plugin in production mode
+# Authentication
 
-   ```bash
-   yarn build
-   ```
+When configuring the Data Source, you will be asked for an Auth Token. This Auth Token must have `READ` access to all Pipes that you wish to use with the Data Source.
 
-4. Run the tests (using Jest)
+# Optimising Pipes
 
-   ```bash
-   # Runs the tests and watches for changes, requires git init first
-   yarn test
-   
-   # Exists after running all the tests
-   yarn test:ci
-   ```
-
-5. Spin up a Grafana instance and run the plugin inside it (using Docker)
-
-   ```bash
-   yarn server
-   ```
-
-6. Run the E2E tests (using Cypress)
-
-   ```bash
-   # Spin up a Grafana instance first that we tests against 
-   yarn server
-   
-   # Start the tests
-   yarn e2e
-   ```
-
-7. Run the linter
-
-   ```bash
-   yarn lint
-   
-   # or
-
-   yarn lint:fix
-   ```
+TODO
