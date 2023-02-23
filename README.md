@@ -2,21 +2,24 @@
 
 This plugin enables you to use your published Tinybird APIs with Grafana.
 
-# Features
+## Auto-discovery of Pipes
+Configure the Data Source with a Tinybird Auth Token, and it will auto-discover the Pipes that the token has permissions to read. When you add a new panel, simlpy select which Pipe you want to use from a dropdown list.
 
-TODO
+# Setup
 
-# Install
-
-TODO
-
-# Configure
-
-TODO
+1. Find the plugin in the [Grafana Marketplace](https://github.com/tinybirdco/grafana-tinybird-datasource/) and click Install.
+2. Open the Data Sources page, and add a new Tinybird Data Source.
+3. In the Data Source config, set the Tinybird endpoint to use. This is specific to the Tinybird region you are in (e.g. `https://api.tinybird.co` or `https://api.us-east.tinybird.co`)
+4. In the Data Source config, set the Tinybird Auth Token to use. This token should have `READ` permissions for the Pipes you wish to visualize.
+5. Save the Data Source config
 
 # Create your first chart
 
-TODO
+1. Open a dashboard and add a new panel
+2. Select the Tinybird Data Source
+3. From the `Pipe` dropdown, select the Pipe you wish to visualize
+4. From the `Format` dropdown, select the format that is appropriate for your vizualization
+5. If your Pipe has parameters, you can add them by clicking `Add param`. Add as many params as needed in the table. If your Pipe has params to accept a date range, you can configure them here to accept the [Grafana date range variables](https://grafana.com/docs/grafana/v8.5/variables/variable-types/global-variables/). For example, if your Pipe accepts a param `date_from` and `date_to`, you can use the Grafana variables `${__from}` and `${__to}` respectively.
 
 # Authentication
 
@@ -24,4 +27,8 @@ When configuring the Data Source, you will be asked for an Auth Token. This Auth
 
 # Optimising Pipes
 
-TODO
+You should take care to ensure that your Pipes are optimised when adding them to Grafana, as Grafana can cause a lot of requests (e.g. with auto-refreshes).
+
+Here are some sugggestions:
+1. Ensure there is a default applied to date range parameters in Tinybird (or a LIMIT on how many rows to return). When you add a new panel to Grafana, it won't apply the date filters by default. If you have no defaults, or date range params are marked as optional, you could scan the entire table and return millions of results. This is a good way to crash your browser.
+2. Optimise the sorting keys of your Data Sources in Tinybird, so that queries from Grafana are scanning as little data as possible. Ensure you are applying these filters appropriately in Grafana.
