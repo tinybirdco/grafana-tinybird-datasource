@@ -58,6 +58,10 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
     const url = new URL(`${this.tinybirdURL}${query.pipeName}${query.pipeName.endsWith('.json') ? '' : '.json'}`);
     url.searchParams.set('token', this.tinybirdToken);
     Object.entries(query.params).forEach(([key, value]) => {
+      if (value.trim() === '') {
+        return;
+      }
+
       const customVariable = variables.find((v) => v.name === key);
 
       if (value.includes('__from') || value.includes('__to')) {

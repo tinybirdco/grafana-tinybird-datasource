@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory, useTheme } from '@grafana/ui';
+import { Icon, InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory, Tooltip, useTheme } from '@grafana/ui';
 import { GrafanaTheme, QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from '../datasource';
 import { OutputFormat, SUPPORTED_OUTPUT_FORMATS, TinybirdOptions, TinybirdPipe, TinybirdQuery } from '../types';
-import { capitalize, pick } from 'lodash';
+import { capitalize, get, pick } from 'lodash';
 import { getBackendSrv } from '@grafana/runtime';
 
 export function QueryEditor({
@@ -28,7 +28,13 @@ export function QueryEditor({
 
     getBackendSrv()
       .get(url.toString())
-      .then(({ pipes }) => setPipes(pipes.map((pipe: unknown) => pick(pipe, 'id', 'name'))));
+      .then(({ pipes }) =>
+        setPipes(
+          pipes
+            .filter((pipe: unknown) => get(pipe, 'type') === 'endpoint')
+            .map((pipe: unknown) => pick(pipe, 'id', 'name'))
+        )
+      );
   }, [datasource.tinybirdURL, datasource.tinybirdToken]);
 
   useEffect(() => {
@@ -36,18 +42,30 @@ export function QueryEditor({
       return;
     }
 
-    const pipeId = pipes.find((pipe) => pipe.name === query.pipeName)!.id;
-    const url = new URL(`${datasource.tinybirdURL}${pipeId}`);
+    const pipe = pipes.find((pipe) => pipe.name === query.pipeName);
+
+    if (!pipe) {
+      return;
+    }
+
+    const url = new URL(`${datasource.tinybirdURL}${pipe.id}`);
     url.searchParams.set('token', datasource.tinybirdToken);
 
     getBackendSrv()
       .get(url.toString())
-      .then(({ nodes }) =>
+      .then(({ nodes }) => {
+        const paramOptions = Object.fromEntries(nodes[0].params.map(({ name, ...param }: any) => [name, param]));
+        const params = Object.entries(paramOptions).reduce(
+          (acc, [name, param]) => ({ ...acc, [name]: param.default ?? '' }),
+          {}
+        );
+
         onChange({
           ...query,
-          paramOptions: Object.fromEntries(nodes[0].params.map((param: any) => [param.name, param.type])),
-        })
-      );
+          paramOptions,
+          params,
+        });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasource.tinybirdToken, datasource.tinybirdURL, pipes, query.pipeName]);
 
@@ -92,33 +110,47 @@ export function QueryEditor({
         )}
       </InlineFieldRow>
 
-      <table className={styles.table}>
-        <thead className={styles.thead}>
-          <tr className={styles.row}>
-            {['Name', 'Type', 'Value'].map((_, key) => (
-              <th key={key} className={styles.th}>
-                {_}
-              </th>
-            ))}
-            <th className={styles.th}></th>
-          </tr>
-        </thead>
-        <tbody className={styles.tbody}>
-          {Object.entries(query.paramOptions ?? {}).map(([name, type], rowIdx) => (
-            <tr key={rowIdx} className={styles.row}>
-              <td className={styles.td}>{name}</td>
-              <td className={styles.td}>{type}</td>
-              <td className={styles.td}>
-                <input
-                  className={styles.input}
-                  value={query.params[name]}
-                  onChange={(e) => onChange({ ...query, params: { ...query.params, [name]: e.currentTarget.value } })}
-                />
-              </td>
+      {Object.keys(query.paramOptions ?? {}).length > 0 && (
+        <table className={styles.table}>
+          <thead className={styles.thead}>
+            <tr className={styles.row}>
+              {['Name', 'Type', 'Value'].map((_, key) => (
+                <th key={key} className={styles.th}>
+                  {_}
+                </th>
+              ))}
+              <th className={styles.th}></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className={styles.tbody}>
+            {Object.entries(query.paramOptions).map(([name, { type, description, required }], rowIdx) => (
+              <tr key={rowIdx} className={styles.row}>
+                <td className={styles.td}>
+                  <div className={styles.nameCol}>
+                    {name}
+                    {description && (
+                      <Tooltip content={description}>
+                        <Icon name="info-circle" />
+                      </Tooltip>
+                    )}
+                  </div>
+                </td>
+                <td className={styles.td}>
+                  {type}
+                  {required ? '*' : ''}
+                </td>
+                <td className={styles.td}>
+                  <input
+                    className={styles.input}
+                    value={query.params[name]}
+                    onChange={(e) => onChange({ ...query, params: { ...query.params, [name]: e.currentTarget.value } })}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -184,6 +216,11 @@ const getStyles = stylesFactory((theme: GrafanaTheme) => {
       border-left: solid ${theme.colors.formInputBorder} 1px;
       border-top: solid ${theme.colors.formInputBorder} 1px;
       background-color: ${theme.colors.formInputBg};
+    `,
+    nameCol: css`
+      display: flex;
+      align-items: center;
+      gap: ${theme.spacing.xs};
     `,
   };
 });

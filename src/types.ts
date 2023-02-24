@@ -8,7 +8,7 @@ export interface TinybirdQuery extends DataQuery {
   format: OutputFormat;
   pipeName: string;
   extrapolate?: boolean;
-  paramOptions: Record<string, string>; // name: type
+  paramOptions: Record<string, TinybirdParam>;
   params: Record<string, string>;
 }
 
@@ -28,4 +28,11 @@ export interface TinybirdOptions extends DataSourceJsonData {
 export interface TinybirdPipe {
   id: string;
   name: string;
+}
+
+export interface TinybirdParam {
+  type: string;
+  description?: string;
+  required?: boolean;
+  default?: string;
 }
