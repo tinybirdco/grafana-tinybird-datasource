@@ -2,24 +2,27 @@
 
 This plugin enables you to use your published Tinybird APIs with Grafana.
 
-## Auto-discovery of Pipes
-Configure the Data Source with a Tinybird Auth Token, and it will auto-discover the Pipes that the token has permissions to read. When you add a new panel, simlpy select which Pipe you want to use from a dropdown list.
-
 # Setup
 
 1. Find the plugin in the [Grafana Marketplace](https://github.com/tinybirdco/grafana-tinybird-datasource/) and click Install.
 2. Open the Data Sources page, and add a new Tinybird Data Source.
 3. In the Data Source config, set the Tinybird endpoint to use. This is specific to the Tinybird region you are in (e.g. `https://api.tinybird.co` or `https://api.us-east.tinybird.co`)
-4. In the Data Source config, set the Tinybird Auth Token to use. This token should have `READ` permissions for the Pipes you wish to visualize.
+4. In the Data Source config, set the Tinybird Auth Token to use. This token should have `READ` permissions for the API Endpoints you wish to visualize.
 5. Save the Data Source config
 
 # Create your first chart
 
 1. Open a dashboard and add a new panel
 2. Select the Tinybird Data Source
-3. From the `Pipe` dropdown, select the Pipe you wish to visualize
+3. From the `Pipe` dropdown, select the API Endpoint you wish to visualize
 4. From the `Format` dropdown, select the format that is appropriate for your vizualization
-5. If your Pipe has parameters, you can add them by clicking `Add param`. Add as many params as needed in the table. If your Pipe has params to accept a date range, you can configure them here to accept the [Grafana date range variables](https://grafana.com/docs/grafana/v8.5/variables/variable-types/global-variables/). For example, if your Pipe accepts a param `date_from` and `date_to`, you can use the Grafana variables `${__from}` and `${__to}` respectively.
+5. If your API Endpoint has parameters, they will be automatically discovered and added to the parameters table. If your API Endpoint has params to accept a date range, you can configure them here to accept the [Grafana date range variables](https://grafana.com/docs/grafana/v8.5/variables/variable-types/global-variables/). For example, if your API Endpoint accepts a param `date_from` and `date_to`, you can use the Grafana variables `${__from}` and `${__to}` respectively.
+
+## Auto-discovery of API Endpoint
+Configure the Data Source with a Tinybird Auth Token, and it will auto-discover the API Endpoints that the token has permissions to read. When you add a new panel, simlpy select which API Endpoint you want to use from a dropdown list.
+
+## Auto-discovery of API Endpoint Params
+When you select an API Endpoint in a panel, it will automatically discover the parameters that are available to pass through. You can choose which parameters to pass a value for, including sending [Grafana variables](https://grafana.com/docs/grafana/v8.5/variables/variable-types/global-variables/).
 
 # Authentication
 
