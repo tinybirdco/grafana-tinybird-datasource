@@ -73,7 +73,7 @@ export function QueryEditor({
     <div className={styles.root}>
       <InlineFieldRow>
         <InlineFieldRow>
-          <InlineField label="Pipe name" labelWidth={14} tooltip="Tinybird datasource name">
+          <InlineField label="API Endpoint" labelWidth={14} tooltip="Your published Tinybird API Endpoint">
             <Select
               width={50}
               options={pipeNameOptions}
