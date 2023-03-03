@@ -54,7 +54,7 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
   }
 
   async doRequest(query: TinybirdQuery) {
-    if (!query.pipeName) {
+    if (!query.pipeName.length) {
       throw new Error('Please select a pipe');
     }
 
