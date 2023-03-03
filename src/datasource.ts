@@ -54,8 +54,12 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
   }
 
   async doRequest(query: TinybirdQuery) {
+    if (!query.pipeName.length) {
+      throw new Error('Please select a pipe');
+    }
+
     const variables = getTemplateSrv().getVariables();
-    const url = new URL(`${this.tinybirdURL}${query.pipeName}${query.pipeName.endsWith('.json') ? '' : '.json'}`);
+    const url = new URL(`${this.tinybirdURL}${query.pipeName}.json`);
     url.searchParams.set('token', this.tinybirdToken);
     Object.entries(query.params).forEach(([key, value]) => {
       if (value.trim() === '') {

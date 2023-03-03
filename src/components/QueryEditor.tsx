@@ -78,7 +78,7 @@ export function QueryEditor({
               width={50}
               options={pipeNameOptions}
               value={query.pipeName}
-              onChange={({ value }) => onChange({ ...query, pipeName: value ?? '' })}
+              onChange={({ value }) => onChange({ ...query, pipeName: value })}
               placeholder="ds"
             />
           </InlineField>
