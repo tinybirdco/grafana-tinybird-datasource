@@ -1,5 +1,7 @@
 import { find, pickBy, omitBy } from 'lodash';
 import { FieldType, MutableDataFrame, DataFrame, TableData, TimeSeries, DateTime } from '@grafana/data';
+// eslint-disable-next-line no-restricted-imports
+import moment from 'moment';
 
 type SqlSeriesOptions = {
   refId: string;
@@ -43,13 +45,11 @@ export default class SqlSeries {
 
     const columns = this.meta.map((col) => ({
       text: col.name,
-      type: SqlSeries._toJSType(col.type),
+      type: this.toJSType(col.type),
     }));
 
     const rows = this.series.map((ser) =>
-      columns.map((col, index) =>
-        SqlSeries._formatValueByType(ser[col.text], SqlSeries._toJSType(this.meta[index].type))
-      )
+      columns.map((col, index) => this.formatValueByType(ser[col.text], this.toJSType(this.meta[index].type)))
     );
 
     return [
@@ -73,14 +73,14 @@ export default class SqlSeries {
     const labelFields: string[] = [];
     const messageField =
       find(this.meta, ['name', 'content'])?.name ??
-      find(this.meta, (col) => SqlSeries._toFieldType(col.type) === FieldType.string)?.name;
+      find(this.meta, (col) => this.toFieldType(col.type) === FieldType.string)?.name;
 
     if (!messageField) {
       return dataFrames;
     }
 
     this.meta.forEach((col, index) => {
-      let type = SqlSeries._toFieldType(col.type);
+      let type = this.toFieldType(col.type);
       if (index === 0 && col.type === 'UInt64') {
         type = FieldType.time;
       }
@@ -125,12 +125,17 @@ export default class SqlSeries {
     }
 
     const metrics = {};
-    const timeCol = this.meta[0];
-    let lastTimeStamp = this.series[0][timeCol.name];
+    const timeCol = this.findColByFieldType(FieldType.time) ?? this.findColByFieldType(FieldType.number);
+
+    if (!timeCol) {
+      throw new Error('Please select time column');
+    }
+
+    let lastTimeStamp = this.formatTimeValue(this.series[0][timeCol.name]);
     const keyColumns = this.keys.filter((name) => name !== timeCol.name);
 
     this.series.forEach((row) => {
-      const t = SqlSeries._formatValue(row[timeCol.name]);
+      const t = this.formatTimeValue(row[timeCol.name]);
       let metricKey: string | null = null;
 
       if (keyColumns.length) {
@@ -157,10 +162,10 @@ export default class SqlSeries {
 
         if (Array.isArray(val)) {
           val.forEach((arr) => {
-            SqlSeries._pushDatapoint(metrics, t, arr[0], arr[1]);
+            this.pushDatapoint(metrics, t, arr[0], arr[1]);
           });
         } else {
-          SqlSeries._pushDatapoint(metrics, t, key, val as number);
+          this.pushDatapoint(metrics, t, key, val as number);
         }
       });
     });
@@ -201,7 +206,7 @@ export default class SqlSeries {
     return datapoints;
   }
 
-  static _pushDatapoint(metrics: Record<string, any[][]>, timestamp: number, key: string, value: number): void {
+  private pushDatapoint(metrics: Record<string, any[][]>, timestamp: number, key: string, value: number): void {
     if (!metrics[key]) {
       metrics[key] = [];
       Object.entries(metrics).forEach(([, dataPoints]) => {
@@ -213,10 +218,10 @@ export default class SqlSeries {
       });
     }
 
-    metrics[key].push([SqlSeries._formatValue(value), timestamp]);
+    metrics[key].push([this.formatValue(value), timestamp]);
   }
 
-  static _toJSType(type: string): string {
+  private toJSType(type: string): string {
     switch (type) {
       case 'UInt8':
       case 'UInt16':
@@ -252,7 +257,7 @@ export default class SqlSeries {
     }
   }
 
-  static _toFieldType(type: string): FieldType {
+  private toFieldType(type: string): FieldType {
     switch (type) {
       case 'UInt8':
       case 'UInt16':
@@ -304,12 +309,22 @@ export default class SqlSeries {
     }
   }
 
-  static _formatValue(value: any) {
+  private findColByFieldType(fieldType: FieldType) {
+    return this.meta
+      .filter(({ type }) => !type.includes('Float'))
+      .find(({ type }) => this.toFieldType(type) === fieldType);
+  }
+
+  private formatTimeValue(value: any) {
+    return moment(value).valueOf();
+  }
+
+  private formatValue(value: any) {
     const numeric = Number(value);
     return value === null || isNaN(numeric) ? value : numeric;
   }
 
-  static _formatValueByType(value: any, t: string) {
+  private formatValueByType(value: any, t: string) {
     const numeric = Number(value);
     return value === null || isNaN(numeric) || t !== 'number' ? value : numeric;
   }
