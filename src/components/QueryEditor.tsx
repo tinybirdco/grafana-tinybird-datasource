@@ -20,7 +20,10 @@ export function QueryEditor({
     value: f,
   }));
 
-  const pipeNameOptions = useMemo(() => pipes.map((pipe: any) => ({ label: pipe.name, value: pipe.name })), [pipes]);
+  const pipeNameOptions = useMemo(
+    () => pipes.map((pipe: { name: string }) => ({ label: pipe.name, value: pipe.name })),
+    [pipes]
+  );
 
   useEffect(() => {
     const url = new URL(datasource.tinybirdURL);
@@ -56,7 +59,7 @@ export function QueryEditor({
       .then(({ nodes }) => {
         const paramOptions = Object.fromEntries(nodes[0].params.map(({ name, ...param }: any) => [name, param]));
         const params = Object.entries(paramOptions).reduce(
-          (acc, [name, param]) => ({ ...acc, [name]: param.default ?? '' }),
+          (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
           {}
         );
 
@@ -78,7 +81,11 @@ export function QueryEditor({
               width={50}
               options={pipeNameOptions}
               value={query.pipeName}
-              onChange={({ value }) => onChange({ ...query, pipeName: value })}
+              onChange={({ value }) => {
+                if (value) {
+                  onChange({ ...query, pipeName: value });
+                }
+              }}
               placeholder="ds"
             />
           </InlineField>
@@ -90,7 +97,9 @@ export function QueryEditor({
             options={formatAsOptions}
             value={query.format}
             onChange={({ value }) => {
-              onChange({ ...query, format: value ?? 'table' });
+              if (value) {
+                onChange({ ...query, format: value });
+              }
             }}
             placeholder="Format as"
           />
