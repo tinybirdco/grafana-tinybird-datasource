@@ -59,7 +59,7 @@ export function QueryEditor({
       .then(({ nodes }) => {
         const paramOptions = Object.fromEntries(nodes[0].params.map(({ name, ...param }: any) => [name, param]));
         const params = Object.entries(paramOptions).reduce(
-          (acc, [name, param]) => ({ ...acc, [name]: String(param.default) ?? '' }),
+          (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
           {}
         );
 
