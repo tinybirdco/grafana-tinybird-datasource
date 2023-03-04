@@ -6,7 +6,7 @@ This plugin enables you to use your published Tinybird APIs with Grafana.
 
 The plugin is not available in the Grafana Marketplace and must be installed manually. This requires enabling the Grafana option to install unsigned plugins.
 
-1. Find the release bundle in the [GitHub releases](https://github.com/tinybirdco/grafana-tinybird-datasource/releases) and install using `grafana-cli`. For example: `./grafana-cli --pluginsDir /var/lib/grafana/plugins --insecure --pluginUrl https://github.com/tinybirdco/grafana-tinybird-datasource/releases/download/1.0.0/tinybird-tinybird-datasource-1.0.0.zip plugins install tinybird-tinybird-datasource`
+1. Find the release bundle in the [GitHub releases](https://github.com/tinybirdco/grafana-tinybird-datasource/releases) and install using `grafana-cli`. For example: `./grafana-cli --pluginsDir /var/lib/grafana/plugins --insecure --pluginUrl https://github.com/tinybirdco/grafana-tinybird-datasource/releases/download/1.2.0/tinybird-tinybird-datasource-1.2.0.zip plugins install tinybird-tinybird-datasource`
 2. Restart Grafana to load the plugin
 3. Open the Data Sources page, and add a new Tinybird Data Source.
 4. In the Data Source config, set the Tinybird endpoint to use. This is specific to the Tinybird region you are in (e.g. `https://api.tinybird.co` or `https://api.us-east.tinybird.co`)
