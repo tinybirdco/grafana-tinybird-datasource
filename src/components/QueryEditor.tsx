@@ -3,8 +3,15 @@ import { Icon, InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory,
 import { GrafanaTheme, QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from '../datasource';
-import { OutputFormat, SUPPORTED_OUTPUT_FORMATS, TinybirdOptions, TinybirdPipe, TinybirdQuery } from '../types';
-import { capitalize, get, pick } from 'lodash';
+import {
+  DEFAULT_QUERY,
+  OutputFormat,
+  SUPPORTED_OUTPUT_FORMATS,
+  TinybirdOptions,
+  TinybirdPipe,
+  TinybirdQuery,
+} from '../types';
+import { capitalize, get, isEqual, pick } from 'lodash';
 import { getBackendSrv } from '@grafana/runtime';
 
 export function QueryEditor({
@@ -58,10 +65,12 @@ export function QueryEditor({
       .get(url.toString())
       .then(({ nodes }) => {
         const paramOptions = Object.fromEntries(nodes[0].params.map(({ name, ...param }: any) => [name, param]));
-        const params = Object.entries(paramOptions).reduce(
-          (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
-          {}
-        );
+        const params = isEqual(query.paramOptions, DEFAULT_QUERY)
+          ? Object.entries(paramOptions).reduce(
+              (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
+              {}
+            )
+          : query.params;
 
         onChange({
           ...query,
