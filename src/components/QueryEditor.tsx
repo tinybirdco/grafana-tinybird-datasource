@@ -65,12 +65,13 @@ export function QueryEditor({
       .get(url.toString())
       .then(({ nodes }) => {
         const paramOptions = Object.fromEntries(nodes[0].params.map(({ name, ...param }: any) => [name, param]));
-        const params = isEqual(query.paramOptions, DEFAULT_QUERY)
-          ? Object.entries(paramOptions).reduce(
-              (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
-              {}
-            )
-          : query.params;
+        const params =
+          !query.params || isEqual(query.params, DEFAULT_QUERY.params)
+            ? Object.entries(paramOptions).reduce(
+                (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
+                {}
+              )
+            : query.params;
 
         onChange({
           ...query,
