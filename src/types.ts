@@ -10,6 +10,7 @@ export interface TinybirdQuery extends DataQuery {
   extrapolate?: boolean;
   paramOptions: Record<string, TinybirdParam>;
   params: Record<string, string>;
+  dataKeys: string;
 }
 
 export const DEFAULT_QUERY: Partial<TinybirdQuery> = {
@@ -18,6 +19,7 @@ export const DEFAULT_QUERY: Partial<TinybirdQuery> = {
   extrapolate: true,
   paramOptions: {},
   params: {},
+  dataKeys: '',
 };
 
 export interface TinybirdOptions extends DataSourceJsonData {

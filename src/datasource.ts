@@ -34,7 +34,7 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
           refId: target.refId,
           series: response.data,
           meta: response.meta,
-          keys: ['t', 'job_name'],
+          keys: target.dataKeys.split(','),
           tillNow: options.rangeRaw?.to === 'now',
           from: options.range.from,
           to: options.range.to,

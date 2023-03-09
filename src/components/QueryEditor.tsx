@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Icon, InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory, Tooltip, useTheme } from '@grafana/ui';
+import {
+  Icon,
+  InlineField,
+  InlineFieldRow,
+  InlineSwitch,
+  Input,
+  Select,
+  stylesFactory,
+  Tooltip,
+  useTheme,
+} from '@grafana/ui';
 import { GrafanaTheme, QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from '../datasource';
@@ -116,16 +126,29 @@ export function QueryEditor({
         </InlineField>
 
         {query.format === 'timeseries' && (
-          <InlineField
-            label="Extrapolate"
-            labelWidth={14}
-            tooltip="Turn on if you don't like when last data point in time series much lower then previous"
-          >
-            <InlineSwitch
-              value={query.extrapolate}
-              onChange={({ currentTarget: { value } }) => onChange({ ...query, extrapolate: !!value })}
-            />
-          </InlineField>
+          <>
+            <InlineField
+              label="Extrapolate"
+              labelWidth={14}
+              tooltip="Turn on if you don't like when last data point in time series much lower then previous"
+            >
+              <InlineSwitch
+                value={query.extrapolate}
+                onChange={({ currentTarget: { value } }) => onChange({ ...query, extrapolate: !!value })}
+              />
+            </InlineField>
+
+            <InlineField
+              label="Data keys"
+              labelWidth={14}
+              tooltip="Comma-separated keys. If left empty, keys will be filled automatically"
+            >
+              <Input
+                value={query.dataKeys}
+                onChange={({ currentTarget: { value } }) => onChange({ ...query, dataKeys: value })}
+              />
+            </InlineField>
+          </>
         )}
       </InlineFieldRow>
 
