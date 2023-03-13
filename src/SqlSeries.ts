@@ -148,11 +148,6 @@ export default class SqlSeries {
 
     this.series.forEach((row) => {
       const t = this.formatTimeValue(row[this.timeKey]);
-      let metricKey: string | null = null;
-
-      if (this.labelKeys.length) {
-        metricKey = this.labelKeys.map((name) => row[name]).join(', ');
-      }
 
       if (lastTimeStamp < t) {
         Object.values<any[]>(metrics).forEach((dataPoints) => {
@@ -163,10 +158,15 @@ export default class SqlSeries {
         lastTimeStamp = t;
       }
 
+      let index = 0;
+
       Object.entries(row).forEach(([key, val]) => {
         if (this.timeKey === key || this.labelKeys.includes(key) || !this.dataKeys.includes(key)) {
           return;
         }
+
+        const metricKey = row[this.labelKeys[index]];
+        index++;
 
         if (Array.isArray(val)) {
           val.forEach((arr) => {
