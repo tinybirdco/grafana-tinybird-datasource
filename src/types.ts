@@ -7,19 +7,23 @@ export type OutputFormat = (typeof SUPPORTED_OUTPUT_FORMATS)[number];
 export interface TinybirdQuery extends DataQuery {
   format: OutputFormat;
   pipeName: string;
-  extrapolate?: boolean;
   paramOptions: Record<string, TinybirdParam>;
   params: Record<string, string>;
+  extrapolate?: boolean;
+  timeKey: string;
   dataKeys: string;
+  labelKeys: string;
 }
 
 export const DEFAULT_QUERY: Partial<TinybirdQuery> = {
   format: 'timeseries',
   pipeName: '',
-  extrapolate: true,
   paramOptions: {},
   params: {},
+  extrapolate: true,
+  timeKey: '',
   dataKeys: '',
+  labelKeys: '',
 };
 
 export interface TinybirdOptions extends DataSourceJsonData {
