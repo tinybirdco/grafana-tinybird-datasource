@@ -3,14 +3,18 @@ import { FieldType, MutableDataFrame, DataFrame, TableData, TimeSeries, DateTime
 // eslint-disable-next-line no-restricted-imports
 import moment from 'moment';
 
+type Meta = {
+  name: string;
+  type: string;
+};
+
 type SqlSeriesOptions = {
   refId: string;
   series: any[];
-  keys: string[];
-  meta: Array<{
-    name: string;
-    type: string;
-  }>;
+  meta: Meta[];
+  dataKeys: string[];
+  labelKeys: string[];
+  timeKey: string;
   tillNow: boolean;
   from: DateTime;
   to: DateTime;
@@ -18,12 +22,11 @@ type SqlSeriesOptions = {
 
 export default class SqlSeries {
   private readonly refId: string;
-  private readonly series: any[];
-  private readonly keys: string[];
-  private readonly meta: Array<{
-    name: string;
-    type: string;
-  }>;
+  private readonly series: Array<Record<string, any>>;
+  private readonly meta: Meta[];
+  private readonly timeKey: string;
+  private readonly dataKeys: string[];
+  private readonly labelKeys: string[];
   private readonly tillNow: boolean;
   private readonly from: number;
   private readonly to: number;
@@ -35,7 +38,22 @@ export default class SqlSeries {
     this.tillNow = options.tillNow;
     this.from = options.from.unix();
     this.to = options.to.unix();
-    this.keys = options.keys || [];
+    const allKeys = options.meta.map((m) => m.name);
+    const timeKey =
+      options.timeKey.length > 0 && allKeys.includes(options.timeKey)
+        ? options.timeKey
+        : this.findColByFieldType(FieldType.time)?.name ?? this.findEpochCol() ?? '';
+    const allNumberKeys = options.meta
+      .filter((m) => this.toJSType(m.type) === 'number' && m.name !== timeKey)
+      .map((m) => m.name);
+    const allStringKeys = options.meta
+      .filter((m) => this.toJSType(m.type) === 'string' && m.name !== timeKey)
+      .map((m) => m.name);
+    const dataKeys = options.dataKeys.filter((key) => allNumberKeys.includes(key));
+    const labelKeys = options.labelKeys.filter((key) => allStringKeys.includes(key));
+    this.timeKey = timeKey;
+    this.dataKeys = dataKeys.length > 0 ? dataKeys : allNumberKeys;
+    this.labelKeys = labelKeys.length === this.dataKeys.length ? labelKeys : [];
   }
 
   toTable(): TableData[] {
@@ -125,21 +143,15 @@ export default class SqlSeries {
     }
 
     const metrics = {};
-    const timeCol = this.findColByFieldType(FieldType.time) ?? this.findColByFieldType(FieldType.number);
 
-    if (!timeCol) {
-      throw new Error('Please select time column');
-    }
-
-    let lastTimeStamp = this.formatTimeValue(this.series[0][timeCol.name]);
-    const keyColumns = this.keys.filter((name) => name !== timeCol.name);
+    let lastTimeStamp = this.formatTimeValue(this.series[0][this.timeKey]);
 
     this.series.forEach((row) => {
-      const t = this.formatTimeValue(row[timeCol.name]);
+      const t = this.formatTimeValue(row[this.timeKey]);
       let metricKey: string | null = null;
 
-      if (keyColumns.length) {
-        metricKey = keyColumns.map((name) => row[name]).join(', ');
+      if (this.labelKeys.length) {
+        metricKey = this.labelKeys.map((name) => row[name]).join(', ');
       }
 
       if (lastTimeStamp < t) {
@@ -152,12 +164,8 @@ export default class SqlSeries {
       }
 
       Object.entries(row).forEach(([key, val]) => {
-        if ((!this.keys.length && timeCol.name === key) || this.keys.includes(key)) {
+        if (this.timeKey === key || this.labelKeys.includes(key) || !this.dataKeys.includes(key)) {
           return;
-        }
-
-        if (metricKey) {
-          key = metricKey;
         }
 
         if (Array.isArray(val)) {
@@ -165,7 +173,7 @@ export default class SqlSeries {
             this.pushDatapoint(metrics, t, arr[0], arr[1]);
           });
         } else {
-          this.pushDatapoint(metrics, t, key, val as number);
+          this.pushDatapoint(metrics, t, metricKey ?? key, val as number);
         }
       });
     });
@@ -221,7 +229,7 @@ export default class SqlSeries {
     metrics[key].push([this.formatValue(value), timestamp]);
   }
 
-  private toJSType(type: string): string {
+  private toJSType(type: string): 'number' | 'string' {
     switch (type) {
       case 'UInt8':
       case 'UInt16':
@@ -309,6 +317,23 @@ export default class SqlSeries {
     }
   }
 
+  private findEpochCol() {
+    const numCols = this.meta
+      .filter(({ type }) => !type.includes('Float'))
+      .filter(({ type }) => this.toFieldType(type) === FieldType.number)
+      .map(({ name }) => name);
+
+    const firstRow = this.series[0];
+
+    if (!firstRow) {
+      return null;
+    }
+
+    return numCols
+      .slice(1)
+      .reduce((epochCol, col) => (firstRow[epochCol] < firstRow[col] ? col : epochCol), numCols[0]);
+  }
+
   private findColByFieldType(fieldType: FieldType) {
     return this.meta
       .filter(({ type }) => !type.includes('Float'))
@@ -316,6 +341,19 @@ export default class SqlSeries {
   }
 
   private formatTimeValue(value: any) {
+    // epoch is string
+    if (!isNaN(Number(value))) {
+      value = Number(value);
+    }
+
+    // epoch is in seconds
+    if (
+      typeof value === 'number' &&
+      Math.abs(+Date.now() - +new Date(Number(value))) >= Math.abs(+Date.now() - Number(value) * 1000)
+    ) {
+      value *= 1000;
+    }
+
     return moment(value).valueOf();
   }
 

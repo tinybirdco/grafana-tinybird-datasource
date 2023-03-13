@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Icon, InlineField, InlineFieldRow, InlineSwitch, Select, stylesFactory, Tooltip, useTheme } from '@grafana/ui';
+import {
+  Icon,
+  IconButton,
+  InlineField,
+  InlineFieldRow,
+  InlineSwitch,
+  Input,
+  Select,
+  stylesFactory,
+  Tooltip,
+  useTheme,
+} from '@grafana/ui';
 import { GrafanaTheme, QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from '../datasource';
@@ -21,6 +32,7 @@ export function QueryEditor({
 }: QueryEditorProps<DataSource, TinybirdQuery, TinybirdOptions>) {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [pipes, setPipes] = useState<TinybirdPipe[]>([]);
   const formatAsOptions: Array<SelectableValue<OutputFormat>> = SUPPORTED_OUTPUT_FORMATS.map((f) => ({
     label: capitalize(f),
@@ -85,21 +97,19 @@ export function QueryEditor({
   return (
     <div className={styles.root}>
       <InlineFieldRow>
-        <InlineFieldRow>
-          <InlineField label="API Endpoint" labelWidth={14} tooltip="Your published Tinybird API Endpoint">
-            <Select
-              width={50}
-              options={pipeNameOptions}
-              value={query.pipeName}
-              onChange={({ value }) => {
-                if (value) {
-                  onChange({ ...query, pipeName: value });
-                }
-              }}
-              placeholder="ds"
-            />
-          </InlineField>
-        </InlineFieldRow>
+        <InlineField label="API Endpoint" labelWidth={14} tooltip="Your published Tinybird API Endpoint">
+          <Select
+            width={50}
+            options={pipeNameOptions}
+            value={query.pipeName}
+            onChange={({ value }) => {
+              if (value) {
+                onChange({ ...query, pipeName: value });
+              }
+            }}
+            placeholder="ds"
+          />
+        </InlineField>
 
         <InlineField label="Format as" labelWidth={14}>
           <Select
@@ -115,7 +125,21 @@ export function QueryEditor({
           />
         </InlineField>
 
-        {query.format === 'timeseries' && (
+        <div className={styles.cogIconWrapper}>
+          {query.format === 'timeseries' ? (
+            <IconButton
+              name="cog"
+              variant={isOptionsOpen ? 'primary' : 'secondary'}
+              onClick={() => setIsOptionsOpen((value) => !value)}
+            />
+          ) : (
+            <></>
+          )}
+        </div>
+      </InlineFieldRow>
+
+      {query.format === 'timeseries' && isOptionsOpen && (
+        <InlineFieldRow>
           <InlineField
             label="Extrapolate"
             labelWidth={14}
@@ -126,50 +150,72 @@ export function QueryEditor({
               onChange={({ currentTarget: { value } }) => onChange({ ...query, extrapolate: !!value })}
             />
           </InlineField>
-        )}
-      </InlineFieldRow>
-
-      {Object.keys(query.paramOptions ?? {}).length > 0 && (
-        <table className={styles.table}>
-          <thead className={styles.thead}>
-            <tr className={styles.row}>
-              {['Name', 'Type', 'Value'].map((_, key) => (
-                <th key={key} className={styles.th}>
-                  {_}
-                </th>
-              ))}
-              <th className={styles.th}></th>
-            </tr>
-          </thead>
-          <tbody className={styles.tbody}>
-            {Object.entries(query.paramOptions).map(([name, { type, description, required }], rowIdx) => (
-              <tr key={rowIdx} className={styles.row}>
-                <td className={styles.td}>
-                  <div className={styles.nameCol}>
-                    {name}
-                    {description && (
-                      <Tooltip content={description}>
-                        <Icon name="info-circle" />
-                      </Tooltip>
-                    )}
-                  </div>
-                </td>
-                <td className={styles.td}>
-                  {type}
-                  {required ? '*' : ''}
-                </td>
-                <td className={styles.td}>
-                  <input
-                    className={styles.input}
-                    value={query.params[name]}
-                    onChange={(e) => onChange({ ...query, params: { ...query.params, [name]: e.currentTarget.value } })}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <InlineField label="Time key" labelWidth={16} tooltip="Time key of the data">
+            <Input
+              value={query.timeKey}
+              onChange={({ currentTarget: { value } }) => onChange({ ...query, timeKey: value })}
+            />
+          </InlineField>
+          <InlineField label="Data keys" labelWidth={16} tooltip="Comma-separated keys to access values of the data">
+            <Input
+              value={query.dataKeys}
+              onChange={({ currentTarget: { value } }) => onChange({ ...query, dataKeys: value })}
+            />
+          </InlineField>
+          <InlineField label="Label keys" labelWidth={16} tooltip="Comma-separated keys to access labels of the data">
+            <Input
+              value={query.labelKeys}
+              onChange={({ currentTarget: { value } }) => onChange({ ...query, labelKeys: value })}
+            />
+          </InlineField>
+        </InlineFieldRow>
       )}
+
+      <div className={styles.root}>
+        {Object.keys(query.paramOptions ?? {}).length > 0 && (
+          <table className={styles.table}>
+            <thead className={styles.thead}>
+              <tr className={styles.row}>
+                {['Name', 'Type', 'Value'].map((_, key) => (
+                  <th key={key} className={styles.th}>
+                    {_}
+                  </th>
+                ))}
+                <th className={styles.th}></th>
+              </tr>
+            </thead>
+            <tbody className={styles.tbody}>
+              {Object.entries(query.paramOptions).map(([name, { type, description, required }], rowIdx) => (
+                <tr key={rowIdx} className={styles.row}>
+                  <td className={styles.td}>
+                    <div className={styles.nameCol}>
+                      {name}
+                      {description && (
+                        <Tooltip content={description}>
+                          <Icon name="info-circle" />
+                        </Tooltip>
+                      )}
+                    </div>
+                  </td>
+                  <td className={styles.td}>
+                    {type}
+                    {required ? '*' : ''}
+                  </td>
+                  <td className={styles.td}>
+                    <input
+                      className={styles.input}
+                      value={query.params[name]}
+                      onChange={(e) =>
+                        onChange({ ...query, params: { ...query.params, [name]: e.currentTarget.value } })
+                      }
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
@@ -177,7 +223,14 @@ export function QueryEditor({
 const getStyles = stylesFactory((theme: GrafanaTheme) => {
   return {
     root: css`
-      margin-top: 2rem;
+      margin-top: 1.5rem;
+    `,
+    cogIconWrapper: css`
+      display: flex;
+      align-items: center;
+      position: relative;
+      flex: 0 0 auto;
+      margin: 0px 4px 4px 4px;
     `,
     table: css`
       table-layout: auto;
