@@ -165,7 +165,7 @@ export default class SqlSeries {
           return;
         }
 
-        const metricKey = row[this.labelKeys[index]];
+        const metricKey = this.labelKeys.length > 0 ? row[this.labelKeys[index]] : null;
         index++;
 
         if (Array.isArray(val)) {
