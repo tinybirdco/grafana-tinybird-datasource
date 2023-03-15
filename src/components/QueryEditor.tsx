@@ -13,7 +13,7 @@ import {
 } from '@grafana/ui';
 import { GrafanaTheme, QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
-import { DataSource } from '../datasource';
+import DataSource from '../datasource';
 import {
   DEFAULT_QUERY,
   OutputFormat,
@@ -25,7 +25,7 @@ import {
 import { capitalize, get, isEqual, pick } from 'lodash';
 import { getBackendSrv } from '@grafana/runtime';
 
-export function QueryEditor({
+export default function QueryEditor({
   query,
   onChange,
   datasource,

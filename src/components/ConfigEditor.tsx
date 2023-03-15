@@ -3,7 +3,10 @@ import { InlineField, Input, InlineFieldRow } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { TinybirdOptions } from '../types';
 
-export function ConfigEditor({ options, onOptionsChange }: DataSourcePluginOptionsEditorProps<TinybirdOptions>) {
+export default function ConfigEditor({
+  options,
+  onOptionsChange,
+}: DataSourcePluginOptionsEditorProps<TinybirdOptions>) {
   const onOptionChange = (e: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
       ...options,

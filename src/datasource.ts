@@ -1,4 +1,11 @@
-import { DataQueryRequest, DataQueryResponse, DataSourceApi, DataSourceInstanceSettings } from '@grafana/data';
+import {
+  DashboardVariableModel,
+  DataQueryRequest,
+  DataQueryResponse,
+  DataSourceApi,
+  DataSourceInstanceSettings,
+  ScopedVars,
+} from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaults } from 'lodash';
 // eslint-disable-next-line no-restricted-imports
@@ -6,7 +13,7 @@ import moment from 'moment';
 import SqlSeries from 'SqlSeries';
 import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY } from './types';
 
-export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
+export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
   readonly tinybirdToken: string;
   readonly tinybirdURL: URL;
 
@@ -60,7 +67,8 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
       throw new Error('Please select a pipe');
     }
 
-    const variables = getTemplateSrv().getVariables();
+    const variables = this.getVariables();
+
     const url = new URL(`${this.tinybirdURL}${query.pipeName}.json`);
     url.searchParams.set('token', this.tinybirdToken);
     Object.entries(query.params).forEach(([key, value]) => {
@@ -68,13 +76,8 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
         return;
       }
 
-      const customVariable = variables.find((v) => v.name === key);
-
-      if (value.includes('__from') || value.includes('__to')) {
-        value = this.parseTimeVariable(value);
-      } else if (customVariable) {
-        value = (customVariable as any).query;
-      }
+      const gvMatch = Object.entries(this.globalVariables).find(([name]) => value.includes(name));
+      value = gvMatch ? gvMatch[1](value, variables[gvMatch[0]].value) : getTemplateSrv().replace(value, variables);
       url.searchParams.set(key, value);
     });
 
@@ -92,9 +95,53 @@ export class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
     };
   }
 
-  parseTimeVariable(variable: string) {
-    const globalName = variable.includes('__from') ? '__from' : '__to';
-    const value = +getTemplateSrv().replace(`$${globalName}`);
+  readonly globalVariables = {
+    __dashboard: this.noop,
+    __from: this.parseTimeVariable,
+    __to: this.parseTimeVariable,
+    __interval: this.noop,
+    __interval_ms: this.noop,
+    __name: this.noop,
+    __org: this.noop,
+    __user: this.noop,
+    __range: this.noop,
+    __rate_interval: this.noop,
+    timeFilter: this.noop,
+    __timeFilter: this.noop,
+  } as const;
+
+  getVariables() {
+    const variables: ScopedVars = (getTemplateSrv().getVariables() as DashboardVariableModel[])
+      .filter(({ current: { value } }) => Boolean(value))
+      .reduce((acc, { name, current: { value } }) => ({ ...acc, [name]: { text: name, value: value.toString() } }), {});
+
+    Object.keys(this.globalVariables).forEach((gv) => {
+      variables[gv] = { text: gv, value: this.getGlobalVariableValue(gv) };
+    });
+
+    return variables;
+  }
+
+  getGlobalVariableValue(name: string) {
+    const values: string[] = [];
+
+    getTemplateSrv().replace(`$${name}`, {}, (value: string | string[]) => {
+      if (Array.isArray(value)) {
+        values.push(...value);
+      } else {
+        values.push(value);
+      }
+    });
+
+    return values.toString();
+  }
+
+  noop(_variable: string, value: string) {
+    return value;
+  }
+
+  parseTimeVariable(variable: string, _value: string) {
+    const value = Number(_value);
 
     if (!variable.includes(':')) {
       // ${__from}
