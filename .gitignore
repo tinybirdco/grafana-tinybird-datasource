@@ -32,3 +32,5 @@ e2e-results/
 .idea
 
 .eslintcache
+.DS_Store
+.yarn/

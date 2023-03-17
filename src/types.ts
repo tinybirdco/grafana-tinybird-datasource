@@ -9,10 +9,11 @@ export interface TinybirdQuery extends DataQuery {
   pipeName: string;
   paramOptions: Record<string, TinybirdParam>;
   params: Record<string, string>;
-  extrapolate?: boolean;
+  extrapolate: boolean;
   timeKey: string;
   dataKeys: string;
   labelKeys: string;
+  variableKey: string;
 }
 
 export const DEFAULT_QUERY: Partial<TinybirdQuery> = {
@@ -24,6 +25,7 @@ export const DEFAULT_QUERY: Partial<TinybirdQuery> = {
   timeKey: '',
   dataKeys: '',
   labelKeys: '',
+  variableKey: '',
 };
 
 export interface TinybirdOptions extends DataSourceJsonData {

@@ -4,12 +4,19 @@
   "name": "Tinybird",
   "id": "tinybird-tinybird-datasource",
   "metrics": true,
+  "annotations": true,
+  "logs": true,
   "info": {
     "description": "Plugin to consume tinybird api endpoints",
     "author": {
       "name": "Tinybird"
     },
-    "keywords": ["datasource"],
+    "keywords": [
+      "datasource",
+      "tinybird",
+      "clickhouse",
+      "analytics"
+    ],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"
@@ -20,7 +27,7 @@
     "updated": "%TODAY%"
   },
   "dependencies": {
-    "grafanaDependency": "^9.2.5",
+    "grafanaDependency": "^9.3.8",
     "plugins": []
   }
 }

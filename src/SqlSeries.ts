@@ -15,6 +15,7 @@ type SqlSeriesOptions = {
   dataKeys: string[];
   labelKeys: string[];
   timeKey: string;
+  isUTC: boolean;
   tillNow: boolean;
   from: DateTime;
   to: DateTime;
@@ -27,6 +28,7 @@ export default class SqlSeries {
   private readonly timeKey: string;
   private readonly dataKeys: string[];
   private readonly labelKeys: string[];
+  private readonly isUTC: boolean;
   private readonly tillNow: boolean;
   private readonly from: number;
   private readonly to: number;
@@ -35,6 +37,7 @@ export default class SqlSeries {
     this.refId = options.refId;
     this.series = options.series;
     this.meta = options.meta;
+    this.isUTC = options.isUTC;
     this.tillNow = options.tillNow;
     this.from = options.from.unix();
     this.to = options.to.unix();
@@ -137,7 +140,7 @@ export default class SqlSeries {
     return dataFrames;
   }
 
-  toTimeSeries(extrapolate = true): TimeSeries[] {
+  toTimeSeries(extrapolate: boolean): TimeSeries[] {
     if (!this.series.length) {
       return [];
     }
@@ -354,7 +357,13 @@ export default class SqlSeries {
       value *= 1000;
     }
 
-    return moment(value).valueOf();
+    let momentValue = moment(value);
+
+    if (this.isUTC) {
+      momentValue = momentValue.utc();
+    }
+
+    return momentValue.valueOf();
   }
 
   private formatValue(value: any) {
