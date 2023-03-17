@@ -7,7 +7,7 @@ import {
   ScopedVars,
 } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { defaults } from 'lodash';
+import { defaults, has } from 'lodash';
 // eslint-disable-next-line no-restricted-imports
 import moment from 'moment';
 import SqlSeries from 'SqlSeries';
@@ -20,10 +20,36 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
   constructor(instanceSettings: DataSourceInstanceSettings<TinybirdOptions>) {
     super(instanceSettings);
 
-    this.tinybirdToken = instanceSettings.jsonData.token;
-    this.tinybirdURL = new URL(
-      `${instanceSettings.jsonData.host}${instanceSettings.jsonData.host.endsWith('/') ? '' : '/'}v0/pipes/`
-    );
+    const tinybirdToken = instanceSettings.jsonData.token.trim();
+    const host = instanceSettings.jsonData.host.trim();
+
+    if (!tinybirdToken.length) {
+      throw new Error('No token provided');
+    } else if (!host.length) {
+      throw new Error('No host provided');
+    }
+
+    this.tinybirdToken = tinybirdToken;
+    this.tinybirdURL = new URL(`${host}${host.endsWith('/') ? '' : '/'}v0/pipes/`);
+  }
+
+  async metricFindQuery(query: TinybirdQuery, options?: Record<string, any>) {
+    console.log(typeof query, query);
+    if (!query.variableKey.trim().length) {
+      throw new Error('Add variable key');
+    }
+
+    const res = await this.doRequest(query);
+
+    if (!res.data.length) {
+      return [];
+    }
+
+    if (!has(res.data[0], query.variableKey)) {
+      throw new Error('Variable key is not part of data schema');
+    }
+
+    return res.data.map((d: any) => ({ text: d[query.variableKey] }));
   }
 
   async query(options: DataQueryRequest<TinybirdQuery>): Promise<DataQueryResponse> {
@@ -37,14 +63,22 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
           return result;
         }
 
+        const variables = this.getVariables();
+        const timeKey = this.replaceValue(target.timeKey, variables);
+        const labelKeys = this.replaceValue(target.labelKeys, variables).split(',');
+        const dataKeys = this.replaceValue(target.dataKeys, variables).split(',');
+        const isUTC = options.timezone === 'utc';
+        const tillNow = options.rangeRaw?.to === 'now';
+
         const sqlSeries = new SqlSeries({
           refId: target.refId,
           series: response.data,
           meta: response.meta,
-          timeKey: target.timeKey,
-          dataKeys: target.dataKeys.split(','),
-          labelKeys: target.labelKeys.split(','),
-          tillNow: options.rangeRaw?.to === 'now',
+          timeKey,
+          dataKeys,
+          labelKeys,
+          isUTC,
+          tillNow,
           from: options.range.from,
           to: options.range.to,
         });
@@ -76,9 +110,7 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
         return;
       }
 
-      const gvMatch = Object.entries(this.globalVariables).find(([name]) => value.includes(name));
-      value = gvMatch ? gvMatch[1](value, variables[gvMatch[0]].value) : getTemplateSrv().replace(value, variables);
-      url.searchParams.set(key, value);
+      url.searchParams.set(key, this.replaceValue(value, variables));
     });
 
     return getBackendSrv().get(url.toString());
@@ -109,6 +141,11 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
     timeFilter: this.noop,
     __timeFilter: this.noop,
   } as const;
+
+  replaceValue(value: string, variables: ScopedVars) {
+    const gvMatch = Object.entries(this.globalVariables).find(([name]) => value.includes(name));
+    return gvMatch ? gvMatch[1](value, variables[gvMatch[0]].value) : getTemplateSrv().replace(value, variables);
+  }
 
   getVariables() {
     const variables: ScopedVars = (getTemplateSrv().getVariables() as DashboardVariableModel[])

@@ -22,7 +22,7 @@ import {
   TinybirdPipe,
   TinybirdQuery,
 } from '../types';
-import { capitalize, get, isEqual, pick } from 'lodash';
+import { capitalize, get, isEqual, pick, pickBy } from 'lodash';
 import { getBackendSrv } from '@grafana/runtime';
 
 export default function QueryEditor({
@@ -56,7 +56,8 @@ export default function QueryEditor({
             .filter((pipe: unknown) => get(pipe, 'type') === 'endpoint')
             .map((pipe: unknown) => pick(pipe, 'id', 'name'))
         )
-      );
+      )
+      .catch(console.error);
   }, [datasource.tinybirdURL, datasource.tinybirdToken]);
 
   useEffect(() => {
@@ -76,7 +77,9 @@ export default function QueryEditor({
     getBackendSrv()
       .get(url.toString())
       .then(({ nodes }) => {
-        const paramOptions = Object.fromEntries(nodes[0].params.map(({ name, ...param }: any) => [name, param]));
+        const paramOptions = Object.fromEntries(
+          nodes[0].params.map(({ name, ...param }: any) => [name, pickBy(param)])
+        );
         const params =
           !query.params || isEqual(query.params, DEFAULT_QUERY.params)
             ? Object.entries(paramOptions).reduce(
@@ -90,7 +93,8 @@ export default function QueryEditor({
           paramOptions,
           params,
         });
-      });
+      })
+      .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasource.tinybirdToken, datasource.tinybirdURL, pipes, query.pipeName]);
 
