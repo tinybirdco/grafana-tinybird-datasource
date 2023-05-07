@@ -1,19 +1,20 @@
 import {
+  CoreApp,
   DashboardVariableModel,
   DataQueryRequest,
   DataQueryResponse,
-  DataSourceApi,
   DataSourceInstanceSettings,
   ScopedVars,
 } from '@grafana/data';
-import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaults, has } from 'lodash';
 // eslint-disable-next-line no-restricted-imports
 import moment from 'moment';
+import { Observable, from } from 'rxjs';
 import SqlSeries from 'SqlSeries';
 import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY } from './types';
 
-export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOptions> {
+export default class DataSource extends DataSourceWithBackend<TinybirdQuery, TinybirdOptions> {
   readonly tinybirdToken: string;
   readonly tinybirdURL: URL;
 
@@ -31,6 +32,10 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
 
     this.tinybirdToken = tinybirdToken;
     this.tinybirdURL = new URL(`${host}${host.endsWith('/') ? '' : '/'}v0/pipes/`);
+  }
+
+  getDefaultQuery(_: CoreApp): Partial<TinybirdQuery> {
+    return DEFAULT_QUERY;
   }
 
   async metricFindQuery(query: TinybirdQuery, options?: Record<string, any>) {
@@ -52,48 +57,52 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
     return res.data.map((d: any) => ({ text: d[query.variableKey] }));
   }
 
-  async query(options: DataQueryRequest<TinybirdQuery>): Promise<DataQueryResponse> {
-    return Promise.all(
-      options.targets.filter((target) => !target.hide).map((target) => this.doRequest(defaults(target, DEFAULT_QUERY)))
-    ).then((responses) => {
-      const data = responses.reduce((result, response, index) => {
-        const target = options.targets[index];
+  query(options: DataQueryRequest<TinybirdQuery>): Observable<DataQueryResponse> {
+    return from(
+      Promise.all(
+        options.targets
+          .filter((target) => !target.hide)
+          .map((target) => this.doRequest(defaults(target, DEFAULT_QUERY)))
+      ).then((responses) => {
+        const data = responses.reduce((result, response, index) => {
+          const target = options.targets[index];
 
-        if (!response || !response.data) {
-          return result;
-        }
+          if (!response || !response.data) {
+            return result;
+          }
 
-        const variables = this.getVariables();
-        const timeKey = this.replaceValue(target.timeKey, variables);
-        const labelKeys = this.replaceValue(target.labelKeys, variables).split(',');
-        const dataKeys = this.replaceValue(target.dataKeys, variables).split(',');
-        const isUTC = options.timezone === 'utc';
-        const tillNow = options.rangeRaw?.to === 'now';
+          const variables = this.getVariables();
+          const timeKey = this.replaceValue(target.timeKey, variables);
+          const labelKeys = this.replaceValue(target.labelKeys, variables).split(',');
+          const dataKeys = this.replaceValue(target.dataKeys, variables).split(',');
+          const isUTC = options.timezone === 'utc';
+          const tillNow = options.rangeRaw?.to === 'now';
 
-        const sqlSeries = new SqlSeries({
-          refId: target.refId,
-          series: response.data,
-          meta: response.meta,
-          timeKey,
-          dataKeys,
-          labelKeys,
-          isUTC,
-          tillNow,
-          from: options.range.from,
-          to: options.range.to,
-        });
+          const sqlSeries = new SqlSeries({
+            refId: target.refId,
+            series: response.data,
+            meta: response.meta,
+            timeKey,
+            dataKeys,
+            labelKeys,
+            isUTC,
+            tillNow,
+            from: options.range.from,
+            to: options.range.to,
+          });
 
-        if (target.format === 'table') {
-          return [...result, ...sqlSeries.toTable()];
-        } else if (target.format === 'logs') {
-          return sqlSeries.toLogs();
-        } else {
-          return [...result, ...sqlSeries.toTimeSeries(target.extrapolate)];
-        }
-      }, []);
+          if (target.format === 'table') {
+            return [...result, ...sqlSeries.toTable()];
+          } else if (target.format === 'logs') {
+            return sqlSeries.toLogs();
+          } else {
+            return [...result, ...sqlSeries.toTimeSeries(target.extrapolate)];
+          }
+        }, []);
 
-      return { data };
-    });
+        return { data };
+      })
+    );
   }
 
   async doRequest(query: TinybirdQuery) {
@@ -144,7 +153,7 @@ export default class DataSource extends DataSourceApi<TinybirdQuery, TinybirdOpt
 
   replaceValue(value: string, variables: ScopedVars) {
     const gvMatch = Object.entries(this.globalVariables).find(([name]) => value.includes(name));
-    return gvMatch ? gvMatch[1](value, variables[gvMatch[0]].value) : getTemplateSrv().replace(value, variables);
+    return gvMatch ? gvMatch[1](value, variables[gvMatch[0]]?.value) : getTemplateSrv().replace(value, variables);
   }
 
   getVariables() {

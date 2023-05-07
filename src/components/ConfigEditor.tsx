@@ -22,7 +22,7 @@ export default function ConfigEditor({
       <h3 className="page-heading">Tinybird Options</h3>
 
       <InlineFieldRow>
-        <InlineField label="Host" labelWidth={14} tooltip="The URL where your Tinybird Workspace is hosted.">
+        <InlineField label="Host" labelWidth={15} tooltip="The URL where your Tinybird Workspace is hosted.">
           <Input
             name="host"
             width={50}
@@ -36,7 +36,7 @@ export default function ConfigEditor({
       </InlineFieldRow>
 
       <InlineFieldRow>
-        <InlineField label="Token" labelWidth={14} tooltip="Tinybird API token">
+        <InlineField label="Token" labelWidth={15} tooltip="Tinybird API token">
           <Input
             name="token"
             width={50}

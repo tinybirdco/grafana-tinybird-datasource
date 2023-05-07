@@ -5,7 +5,10 @@
   "id": "tinybird-tinybird-datasource",
   "metrics": true,
   "annotations": true,
+  "backend": true,
+  "alerting": true,
   "logs": true,
+  "executable": "gpx_tinybird",
   "info": {
     "description": "Plugin to consume tinybird api endpoints",
     "author": {
@@ -27,7 +30,7 @@
     "updated": "%TODAY%"
   },
   "dependencies": {
-    "grafanaDependency": "^9.3.8",
+    "grafanaDependency": "^9.5.1",
     "plugins": []
   }
 }

@@ -26,6 +26,7 @@ import { capitalize, get, isEqual, pick, pickBy } from 'lodash';
 import { getBackendSrv } from '@grafana/runtime';
 
 export default function QueryEditor({
+  app,
   query,
   onChange,
   datasource,
@@ -38,6 +39,8 @@ export default function QueryEditor({
     label: capitalize(f),
     value: f,
   }));
+
+  const isAlerting = app === 'unified-alerting';
 
   const pipeNameOptions = useMemo(
     () => pipes.map((pipe: { name: string }) => ({ label: pipe.name, value: pipe.name })),
@@ -101,7 +104,7 @@ export default function QueryEditor({
   return (
     <div className={styles.root}>
       <InlineFieldRow>
-        <InlineField label="API Endpoint" labelWidth={14} tooltip="Your published Tinybird API Endpoint">
+        <InlineField label="API Endpoint" labelWidth={15} tooltip="Your published Tinybird API Endpoint">
           <Select
             width={50}
             options={pipeNameOptions}
@@ -115,19 +118,28 @@ export default function QueryEditor({
           />
         </InlineField>
 
-        <InlineField label="Format as" labelWidth={14}>
-          <Select
-            width={50}
-            options={formatAsOptions}
-            value={query.format}
-            onChange={({ value }) => {
-              if (value) {
-                onChange({ ...query, format: value });
-              }
-            }}
-            placeholder="Format as"
-          />
-        </InlineField>
+        {!isAlerting ? (
+          <InlineField label="Format as" labelWidth={15}>
+            <Select
+              width={50}
+              options={formatAsOptions}
+              value={query.format}
+              onChange={({ value }) => {
+                if (value) {
+                  onChange({ ...query, format: value });
+                }
+              }}
+              placeholder="Format as"
+            />
+          </InlineField>
+        ) : (
+          <InlineField label="Time key" labelWidth={16} tooltip="Time key of the data">
+            <Input
+              value={query.timeKey}
+              onChange={({ currentTarget: { value } }) => onChange({ ...query, timeKey: value })}
+            />
+          </InlineField>
+        )}
 
         <div className={styles.cogIconWrapper}>
           {query.format === 'timeseries' ? (
@@ -146,7 +158,7 @@ export default function QueryEditor({
         <InlineFieldRow>
           <InlineField
             label="Extrapolate"
-            labelWidth={14}
+            labelWidth={15}
             tooltip="Turn on if you don't like when last data point in time series much lower then previous"
           >
             <InlineSwitch
