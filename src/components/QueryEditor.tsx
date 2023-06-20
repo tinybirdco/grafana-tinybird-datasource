@@ -22,8 +22,7 @@ import {
   TinybirdPipe,
   TinybirdQuery,
 } from '../types';
-import { capitalize, get, isEqual, pick, pickBy } from 'lodash';
-import { getBackendSrv } from '@grafana/runtime';
+import { capitalize, isEqual, pickBy } from 'lodash';
 
 export default function QueryEditor({
   app,
@@ -42,29 +41,19 @@ export default function QueryEditor({
 
   const isAlerting = app === 'unified-alerting';
 
-  const pipeNameOptions = useMemo(
-    () => pipes.map((pipe: { name: string }) => ({ label: pipe.name, value: pipe.name })),
-    [pipes]
-  );
+  const pipeNameOptions = useMemo(() => pipes.map((pipe) => ({ label: pipe.name, value: pipe.name })), [pipes]);
 
   useEffect(() => {
-    const url = new URL(datasource.tinybirdURL);
-    url.searchParams.set('token', datasource.tinybirdToken);
+    if (!datasource.url) {
+      return;
+    }
 
-    getBackendSrv()
-      .get(url.toString())
-      .then(({ pipes }) =>
-        setPipes(
-          pipes
-            .filter((pipe: unknown) => get(pipe, 'type') === 'endpoint')
-            .map((pipe: unknown) => pick(pipe, 'id', 'name'))
-        )
-      )
-      .catch(console.error);
-  }, [datasource.tinybirdURL, datasource.tinybirdToken]);
+    datasource.getPipes().then(setPipes).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource.url]);
 
   useEffect(() => {
-    if (!pipes.length) {
+    if (!pipes.length || !datasource.url) {
       return;
     }
 
@@ -74,12 +63,9 @@ export default function QueryEditor({
       return;
     }
 
-    const url = new URL(`${datasource.tinybirdURL}${pipe.id}`);
-    url.searchParams.set('token', datasource.tinybirdToken);
-
-    getBackendSrv()
-      .get(url.toString())
-      .then(({ nodes }) => {
+    datasource
+      .getNodes(pipe.id)
+      .then((nodes) => {
         const paramOptions = Object.fromEntries(
           nodes[0].params.map(({ name, ...param }: any) => [name, pickBy(param)])
         );
@@ -99,7 +85,7 @@ export default function QueryEditor({
       })
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datasource.tinybirdToken, datasource.tinybirdURL, pipes, query.pipeName]);
+  }, [datasource.url, pipes, query.pipeName]);
 
   return (
     <div className={styles.root}>

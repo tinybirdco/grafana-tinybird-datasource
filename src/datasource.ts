@@ -7,31 +7,20 @@ import {
   ScopedVars,
 } from '@grafana/data';
 import { DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { defaults, has } from 'lodash';
+import { defaults, get, has, pick } from 'lodash';
 // eslint-disable-next-line no-restricted-imports
 import moment from 'moment';
 import { Observable, from } from 'rxjs';
 import SqlSeries from 'SqlSeries';
-import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY } from './types';
+import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY, TinybirdPipe, TinybirdResponse } from './types';
 
 export default class DataSource extends DataSourceWithBackend<TinybirdQuery, TinybirdOptions> {
-  readonly tinybirdToken: string;
-  readonly tinybirdURL: URL;
+  readonly url: string;
 
   constructor(instanceSettings: DataSourceInstanceSettings<TinybirdOptions>) {
     super(instanceSettings);
 
-    const tinybirdToken = instanceSettings.jsonData.token.trim();
-    const host = instanceSettings.jsonData.host.trim();
-
-    if (!tinybirdToken.length) {
-      throw new Error('No token provided');
-    } else if (!host.length) {
-      throw new Error('No host provided');
-    }
-
-    this.tinybirdToken = tinybirdToken;
-    this.tinybirdURL = new URL(`${host}${host.endsWith('/') ? '' : '/'}v0/pipes/`);
+    this.url = `${instanceSettings.url!}/query`;
   }
 
   getDefaultQuery(_: CoreApp): Partial<TinybirdQuery> {
@@ -39,14 +28,13 @@ export default class DataSource extends DataSourceWithBackend<TinybirdQuery, Tin
   }
 
   async metricFindQuery(query: TinybirdQuery, options?: Record<string, any>) {
-    console.log(typeof query, query);
     if (!query.variableKey.trim().length) {
       throw new Error('Add variable key');
     }
 
     const res = await this.doRequest(query);
 
-    if (!res.data.length) {
+    if (!res?.data.length) {
       return [];
     }
 
@@ -63,72 +51,79 @@ export default class DataSource extends DataSourceWithBackend<TinybirdQuery, Tin
         options.targets
           .filter((target) => !target.hide)
           .map((target) => this.doRequest(defaults(target, DEFAULT_QUERY)))
-      ).then((responses) => {
-        const data = responses.reduce((result, response, index) => {
-          const target = options.targets[index];
+      )
+        .then((responses) => responses.filter((response) => Boolean(response)) as TinybirdResponse[])
+        .then((responses) => {
+          const data = responses.reduce((result, response, index) => {
+            const target = options.targets[index];
 
-          if (!response || !response.data) {
-            return result;
-          }
+            if (!response || !response.data) {
+              return result;
+            }
 
-          const variables = this.getVariables();
-          const timeKey = this.replaceValue(target.timeKey, variables);
-          const labelKeys = this.replaceValue(target.labelKeys, variables).split(',');
-          const dataKeys = this.replaceValue(target.dataKeys, variables).split(',');
-          const isUTC = options.timezone === 'utc';
-          const tillNow = options.rangeRaw?.to === 'now';
+            const variables = this.getVariables();
+            const timeKey = this.replaceValue(target.timeKey, variables);
+            const labelKeys = this.replaceValue(target.labelKeys, variables).split(',');
+            const dataKeys = this.replaceValue(target.dataKeys, variables).split(',');
+            const isUTC = options.timezone === 'utc';
+            const tillNow = options.rangeRaw?.to === 'now';
 
-          const sqlSeries = new SqlSeries({
-            refId: target.refId,
-            series: response.data,
-            meta: response.meta,
-            timeKey,
-            dataKeys,
-            labelKeys,
-            isUTC,
-            tillNow,
-            from: options.range.from,
-            to: options.range.to,
-          });
+            const sqlSeries = new SqlSeries({
+              refId: target.refId,
+              series: response.data,
+              meta: response.meta,
+              timeKey,
+              dataKeys,
+              labelKeys,
+              isUTC,
+              tillNow,
+              from: options.range.from,
+              to: options.range.to,
+            });
 
-          if (target.format === 'table') {
-            return [...result, ...sqlSeries.toTable()];
-          } else if (target.format === 'logs') {
-            return sqlSeries.toLogs();
-          } else {
-            return [...result, ...sqlSeries.toTimeSeries(target.extrapolate)];
-          }
-        }, []);
+            if (target.format === 'table') {
+              return [...result, ...sqlSeries.toTable()];
+            } else if (target.format === 'logs') {
+              return sqlSeries.toLogs();
+            } else {
+              return [...result, ...sqlSeries.toTimeSeries(target.extrapolate)];
+            }
+          }, [] as DataQueryResponse['data']);
 
-        return { data };
-      })
+          return { data };
+        })
     );
   }
 
   async doRequest(query: TinybirdQuery) {
     if (!query.pipeName.length) {
-      throw new Error('Please select a pipe');
+      return;
     }
 
     const variables = this.getVariables();
-
-    const url = new URL(`${this.tinybirdURL}${query.pipeName}.json`);
-    url.searchParams.set('token', this.tinybirdToken);
+    const searchParams = new URLSearchParams();
     Object.entries(query.params).forEach(([key, value]) => {
       if (value.trim() === '') {
         return;
       }
 
-      url.searchParams.set(key, this.replaceValue(value, variables));
+      searchParams.set(key, this.replaceValue(value, variables));
     });
 
-    return getBackendSrv().get(url.toString());
+    return getBackendSrv()
+      .fetch<TinybirdResponse>({
+        url: `${this.url}/${query.pipeName}.json?${searchParams.toString()}`,
+        method: 'GET',
+      })
+      .toPromise()
+      .then((res) => res?.data);
   }
 
   async testDatasource() {
-    const url = new URL(this.tinybirdURL);
-    url.searchParams.set('token', this.tinybirdToken);
-    const result = await getBackendSrv().get(url.toString());
+    const result = (await getBackendSrv()
+      .fetch({ url: this.url, method: 'GET' })
+      .toPromise()
+      .then((res) => res?.data)) as { error?: string };
 
     return {
       status: result.error ? 'error' : 'success',
@@ -154,6 +149,23 @@ export default class DataSource extends DataSourceWithBackend<TinybirdQuery, Tin
   replaceValue(value: string, variables: ScopedVars) {
     const gvMatch = Object.entries(this.globalVariables).find(([name]) => value.includes(name));
     return gvMatch ? gvMatch[1](value, variables[gvMatch[0]]?.value) : getTemplateSrv().replace(value, variables);
+  }
+
+  async getPipes(): Promise<TinybirdPipe[]> {
+    return getBackendSrv()
+      .fetch<{ pipes: TinybirdPipe[] }>({ url: this.url })
+      .toPromise()
+      .then((res) => res?.data?.pipes ?? [])
+      .then((pipes) =>
+        pipes.filter((pipe) => get(pipe, 'type') === 'endpoint').map((pipe) => pick(pipe, 'id', 'name'))
+      );
+  }
+
+  async getNodes(pipeId: string): Promise<any[]> {
+    return getBackendSrv()
+      .fetch<{ nodes: any[] }>({ url: `${this.url}/${pipeId}` })
+      .toPromise()
+      .then((res) => res?.data.nodes ?? []);
   }
 
   getVariables() {

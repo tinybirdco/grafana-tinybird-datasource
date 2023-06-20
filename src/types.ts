@@ -28,7 +28,9 @@ export const DEFAULT_QUERY: Partial<TinybirdQuery> = {
   variableKey: '',
 };
 
-export interface TinybirdOptions extends DataSourceJsonData {
+export interface TinybirdOptions extends DataSourceJsonData {}
+
+export interface TinybirdSecureJsonData {
   host: string;
   token: string;
 }
@@ -43,4 +45,22 @@ export interface TinybirdParam {
   description?: string;
   required?: boolean;
   default?: string;
+}
+
+export interface TinybirdResponse {
+  meta: Meta[];
+  data: any[];
+  rows: number;
+  statistics: Statistics;
+}
+
+export interface Meta {
+  name: string;
+  type: string;
+}
+
+export interface Statistics {
+  elapsed: number;
+  rows_read: number;
+  bytes_read: number;
 }

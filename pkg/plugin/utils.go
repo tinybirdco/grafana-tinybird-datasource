@@ -49,6 +49,11 @@ func makeFloatDataField(name string, tbData []map[string]interface{}) *data.Fiel
 	values := make([]float64, len(tbData))
 
 	for i, v := range tbData {
+		if v[name] == nil {
+			values[i] = 0
+			continue
+		}
+
 		values[i] = v[name].(float64)
 	}
 
@@ -61,6 +66,11 @@ func makeTimeDataField(name string, tbData []map[string]interface{}) *data.Field
 	values := make([]time.Time, len(tbData))
 
 	for i, v := range tbData {
+		if v[name] == nil {
+			values[i] = time.Time{}
+			continue
+		}
+
 		values[i], _ = dateparse.ParseLocal(v[name].(string))
 	}
 
@@ -73,6 +83,11 @@ func makeStringDataField(name string, tbData []map[string]interface{}) *data.Fie
 	values := make([]string, len(tbData))
 
 	for i, v := range tbData {
+		if v[name] == nil {
+			values[i] = ""
+			continue
+		}
+
 		values[i] = v[name].(string)
 	}
 

@@ -10,7 +10,6 @@ type Datasource struct {
 	settings   backend.DataSourceInstanceSettings
 	httpClient *http.Client
 	host       string
-	token      string
 }
 
 type TinybirdParam struct {

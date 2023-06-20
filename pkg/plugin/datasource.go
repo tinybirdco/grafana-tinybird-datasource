@@ -22,42 +22,39 @@ var (
 )
 
 func NewDatasource(settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+	host, hostPresent := settings.DecryptedSecureJSONData["host"]
+
+	if !hostPresent || host == "" {
+		return nil, fmt.Errorf("host is required")
+	}
+
+	token, tokenPresent := settings.DecryptedSecureJSONData["token"]
+
+	if !tokenPresent || token == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+
+	if strings.HasSuffix(host, "/") {
+		host = strings.TrimSuffix(host, "/")
+	}
+	host = fmt.Sprintf("%s/v0/pipes/", host)
+
 	opts, err := settings.HTTPClientOptions()
 	if err != nil {
 		return nil, fmt.Errorf("http client options: %w", err)
 	}
 
-	cl, err := httpclient.New(opts)
+	opts.Headers["Authorization"] = fmt.Sprintf("Bearer %s", token)
+
+	httpClient, err := httpclient.New(opts)
 	if err != nil {
 		return nil, fmt.Errorf("httpclient new: %w", err)
-
 	}
-
-	var tbOpts struct {
-		Host  string `json:"host"`
-		Token string `json:"token"`
-	}
-
-	json.Unmarshal(settings.JSONData, &tbOpts)
-
-	if tbOpts.Host == "" {
-		return nil, fmt.Errorf("tinybirdURL is required")
-	}
-
-	if tbOpts.Token == "" {
-		return nil, fmt.Errorf("tinybirdToken is required")
-	}
-
-	if strings.HasSuffix(tbOpts.Host, "/") {
-		tbOpts.Host = strings.TrimSuffix(tbOpts.Host, "/")
-	}
-	tbOpts.Host = fmt.Sprintf("%s/v0/pipes/", tbOpts.Host)
 
 	return &Datasource{
-		settings:   settings,
-		httpClient: cl,
-		host:       tbOpts.Host,
-		token:      tbOpts.Token,
+		settings,
+		httpClient,
+		host,
 	}, nil
 }
 
@@ -99,8 +96,6 @@ func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query 
 	}
 
 	q := req.URL.Query()
-	q.Add("token", d.token)
-
 	for key, value := range qm.Params {
 		value = strings.TrimSpace(value)
 		if value == "" {
@@ -143,9 +138,6 @@ func (d *Datasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequ
 	if err != nil {
 		return nil, err
 	}
-	q := tbReq.URL.Query()
-	q.Add("token", d.token)
-	tbReq.URL.RawQuery = q.Encode()
 
 	res, err := d.httpClient.Do(tbReq)
 

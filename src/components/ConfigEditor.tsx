@@ -1,18 +1,19 @@
 import React, { ChangeEvent } from 'react';
 import { InlineField, Input, InlineFieldRow } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { TinybirdOptions } from '../types';
+import { TinybirdOptions, TinybirdSecureJsonData } from '../types';
 
 export default function ConfigEditor({
   options,
   onOptionsChange,
-}: DataSourcePluginOptionsEditorProps<TinybirdOptions>) {
+}: DataSourcePluginOptionsEditorProps<TinybirdOptions, TinybirdSecureJsonData>) {
   const onOptionChange = (e: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
       ...options,
-      jsonData: {
-        ...options.jsonData,
-        [e.target.name]: e.target.value,
+      secureJsonData: {
+        ...options.secureJsonData!,
+        [e.target.name]:
+          e.target.name === 'host' && e.target.value.endsWith('/') ? e.target.value.slice(0, -1) : e.target.value,
       },
     });
   };
@@ -26,7 +27,7 @@ export default function ConfigEditor({
           <Input
             name="host"
             width={50}
-            value={options.jsonData.host}
+            value={options.secureJsonData?.host ?? ''}
             onChange={onOptionChange}
             spellCheck={false}
             placeholder="https://api.tinybird.co/"
@@ -40,7 +41,7 @@ export default function ConfigEditor({
           <Input
             name="token"
             width={50}
-            value={options.jsonData.token}
+            value={options.secureJsonData?.token ?? ''}
             onChange={onOptionChange}
             spellCheck={false}
             placeholder="p.ey..."

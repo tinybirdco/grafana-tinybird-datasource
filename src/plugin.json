@@ -29,6 +29,18 @@
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
+  "routes": [
+    {
+      "path": "query",
+      "url": "{{ .SecureJsonData.host }}/v0/pipes",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.token }}"
+        }
+      ]
+    }
+  ],
   "dependencies": {
     "grafanaDependency": "^9.5.1",
     "plugins": []
