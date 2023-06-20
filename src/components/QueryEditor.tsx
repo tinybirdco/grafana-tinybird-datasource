@@ -18,14 +18,16 @@ import {
   DEFAULT_QUERY,
   OutputFormat,
   SUPPORTED_OUTPUT_FORMATS,
+  TinybirdNode,
   TinybirdOptions,
+  TinybirdParam,
   TinybirdPipe,
   TinybirdQuery,
 } from '../types';
-import { capitalize, get, isEqual, pick, pickBy } from 'lodash';
-import { getBackendSrv } from '@grafana/runtime';
+import { capitalize, isEqual, pickBy } from 'lodash';
 
 export default function QueryEditor({
+  app,
   query,
   onChange,
   datasource,
@@ -34,34 +36,28 @@ export default function QueryEditor({
   const styles = getStyles(theme);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [pipes, setPipes] = useState<TinybirdPipe[]>([]);
+  const [nodes, setNodes] = useState<TinybirdNode[]>([]);
+  const [nodeIndex, setNodeIndex] = useState(0);
   const formatAsOptions: Array<SelectableValue<OutputFormat>> = SUPPORTED_OUTPUT_FORMATS.map((f) => ({
     label: capitalize(f),
     value: f,
   }));
 
-  const pipeNameOptions = useMemo(
-    () => pipes.map((pipe: { name: string }) => ({ label: pipe.name, value: pipe.name })),
-    [pipes]
-  );
+  const isAlerting = app === 'unified-alerting';
+
+  const pipeNameOptions = useMemo(() => pipes.map((pipe) => ({ label: pipe.name, value: pipe.name })), [pipes]);
 
   useEffect(() => {
-    const url = new URL(datasource.tinybirdURL);
-    url.searchParams.set('token', datasource.tinybirdToken);
+    if (!datasource.url) {
+      return;
+    }
 
-    getBackendSrv()
-      .get(url.toString())
-      .then(({ pipes }) =>
-        setPipes(
-          pipes
-            .filter((pipe: unknown) => get(pipe, 'type') === 'endpoint')
-            .map((pipe: unknown) => pick(pipe, 'id', 'name'))
-        )
-      )
-      .catch(console.error);
-  }, [datasource.tinybirdURL, datasource.tinybirdToken]);
+    datasource.getPipes().then(setPipes).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasource.url]);
 
   useEffect(() => {
-    if (!pipes.length) {
+    if (!pipes.length || !datasource.url) {
       return;
     }
 
@@ -71,37 +67,38 @@ export default function QueryEditor({
       return;
     }
 
-    const url = new URL(`${datasource.tinybirdURL}${pipe.id}`);
-    url.searchParams.set('token', datasource.tinybirdToken);
-
-    getBackendSrv()
-      .get(url.toString())
-      .then(({ nodes }) => {
-        const paramOptions = Object.fromEntries(
-          nodes[0].params.map(({ name, ...param }: any) => [name, pickBy(param)])
-        );
-        const params =
-          !query.params || isEqual(query.params, DEFAULT_QUERY.params)
-            ? Object.entries(paramOptions).reduce(
-                (acc, [name, param]) => ({ ...acc, [name]: String(param.default ?? '') }),
-                {}
-              )
-            : query.params;
-
-        onChange({
-          ...query,
-          paramOptions,
-          params,
-        });
-      })
-      .catch(console.error);
+    datasource.getNodes(pipe.id).then(setNodes).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datasource.tinybirdToken, datasource.tinybirdURL, pipes, query.pipeName]);
+  }, [datasource.url, pipes, query.pipeName]);
+
+  useEffect(() => {
+    if (!nodes.length) {
+      return;
+    }
+
+    const paramOptions = Object.fromEntries(
+      nodes[nodeIndex].params.map(({ name, ...param }: any) => [name, pickBy(param)])
+    );
+    const params =
+      !query.params || isEqual(query.params, DEFAULT_QUERY.params)
+        ? Object.entries(paramOptions).reduce(
+            (acc, [name, param]) => ({ ...acc, [name]: String((param as TinybirdParam).default ?? '') }),
+            {}
+          )
+        : query.params;
+
+    onChange({
+      ...query,
+      paramOptions,
+      params,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, nodeIndex]);
 
   return (
     <div className={styles.root}>
       <InlineFieldRow>
-        <InlineField label="API Endpoint" labelWidth={14} tooltip="Your published Tinybird API Endpoint">
+        <InlineField label="API Endpoint" labelWidth={15} tooltip="Your published Tinybird API Endpoint">
           <Select
             width={50}
             options={pipeNameOptions}
@@ -115,63 +112,89 @@ export default function QueryEditor({
           />
         </InlineField>
 
-        <InlineField label="Format as" labelWidth={14}>
-          <Select
-            width={50}
-            options={formatAsOptions}
-            value={query.format}
-            onChange={({ value }) => {
-              if (value) {
-                onChange({ ...query, format: value });
-              }
-            }}
-            placeholder="Format as"
-          />
-        </InlineField>
-
-        <div className={styles.cogIconWrapper}>
-          {query.format === 'timeseries' ? (
-            <IconButton
-              name="cog"
-              variant={isOptionsOpen ? 'primary' : 'secondary'}
-              onClick={() => setIsOptionsOpen((value) => !value)}
-            />
-          ) : (
-            <></>
-          )}
-        </div>
-      </InlineFieldRow>
-
-      {query.format === 'timeseries' && isOptionsOpen && (
-        <InlineFieldRow>
-          <InlineField
-            label="Extrapolate"
-            labelWidth={14}
-            tooltip="Turn on if you don't like when last data point in time series much lower then previous"
-          >
-            <InlineSwitch
-              value={query.extrapolate}
-              onChange={({ currentTarget: { value } }) => onChange({ ...query, extrapolate: !!value })}
+        {!isAlerting ? (
+          <InlineField label="Format as" labelWidth={15}>
+            <Select
+              width={50}
+              options={formatAsOptions}
+              value={query.format}
+              onChange={({ value }) => {
+                if (value) {
+                  onChange({ ...query, format: value });
+                }
+              }}
+              placeholder="Format as"
             />
           </InlineField>
+        ) : (
           <InlineField label="Time key" labelWidth={16} tooltip="Time key of the data">
             <Input
               value={query.timeKey}
               onChange={({ currentTarget: { value } }) => onChange({ ...query, timeKey: value })}
             />
           </InlineField>
-          <InlineField label="Data keys" labelWidth={16} tooltip="Comma-separated keys to access values of the data">
+        )}
+
+        <div className={styles.cogIconWrapper}>
+          <IconButton
+            name="cog"
+            variant={isOptionsOpen ? 'primary' : 'secondary'}
+            onClick={() => setIsOptionsOpen((value) => !value)}
+          />
+        </div>
+      </InlineFieldRow>
+
+      {isOptionsOpen && (
+        <InlineFieldRow>
+          <InlineField label="Node index" tooltip="Index of the pipe nodes" labelWidth={15}>
             <Input
-              value={query.dataKeys}
-              onChange={({ currentTarget: { value } }) => onChange({ ...query, dataKeys: value })}
+              value={nodeIndex}
+              type="number"
+              min={0}
+              max={nodes.length - 1}
+              onChange={({ currentTarget: { valueAsNumber } }) => setNodeIndex(valueAsNumber)}
             />
           </InlineField>
-          <InlineField label="Label keys" labelWidth={16} tooltip="Comma-separated keys to access labels of the data">
-            <Input
-              value={query.labelKeys}
-              onChange={({ currentTarget: { value } }) => onChange({ ...query, labelKeys: value })}
-            />
-          </InlineField>
+          {query.format === 'timeseries' && (
+            <>
+              <InlineField
+                label="Extrapolate"
+                labelWidth={15}
+                tooltip="Turn on if you don't like when last data point in time series much lower then previous"
+              >
+                <InlineSwitch
+                  value={query.extrapolate}
+                  onChange={({ currentTarget: { value } }) => onChange({ ...query, extrapolate: !!value })}
+                />
+              </InlineField>
+              <InlineField label="Time key" labelWidth={16} tooltip="Time key of the data">
+                <Input
+                  value={query.timeKey}
+                  onChange={({ currentTarget: { value } }) => onChange({ ...query, timeKey: value })}
+                />
+              </InlineField>
+              <InlineField
+                label="Data keys"
+                labelWidth={16}
+                tooltip="Comma-separated keys to access values of the data"
+              >
+                <Input
+                  value={query.dataKeys}
+                  onChange={({ currentTarget: { value } }) => onChange({ ...query, dataKeys: value })}
+                />
+              </InlineField>
+              <InlineField
+                label="Label keys"
+                labelWidth={16}
+                tooltip="Comma-separated keys to access labels of the data"
+              >
+                <Input
+                  value={query.labelKeys}
+                  onChange={({ currentTarget: { value } }) => onChange({ ...query, labelKeys: value })}
+                />
+              </InlineField>
+            </>
+          )}
         </InlineFieldRow>
       )}
 
