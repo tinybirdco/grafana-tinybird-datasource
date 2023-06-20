@@ -7,12 +7,12 @@ import {
   ScopedVars,
 } from '@grafana/data';
 import { DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { defaults, get, has, pick } from 'lodash';
+import { defaults, get, has } from 'lodash';
 // eslint-disable-next-line no-restricted-imports
 import moment from 'moment';
 import { Observable, from } from 'rxjs';
 import SqlSeries from 'SqlSeries';
-import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY, TinybirdPipe, TinybirdResponse } from './types';
+import { TinybirdQuery, TinybirdOptions, DEFAULT_QUERY, TinybirdPipe, TinybirdResponse, TinybirdNode } from './types';
 
 export default class DataSource extends DataSourceWithBackend<TinybirdQuery, TinybirdOptions> {
   readonly url: string;
@@ -120,10 +120,10 @@ export default class DataSource extends DataSourceWithBackend<TinybirdQuery, Tin
   }
 
   async testDatasource() {
-    const result = (await getBackendSrv()
-      .fetch({ url: this.url, method: 'GET' })
+    const result = await getBackendSrv()
+      .fetch<{ error?: string }>({ url: this.url, method: 'GET' })
       .toPromise()
-      .then((res) => res?.data)) as { error?: string };
+      .then((res) => res?.data ?? {});
 
     return {
       status: result.error ? 'error' : 'success',
@@ -156,14 +156,12 @@ export default class DataSource extends DataSourceWithBackend<TinybirdQuery, Tin
       .fetch<{ pipes: TinybirdPipe[] }>({ url: this.url })
       .toPromise()
       .then((res) => res?.data?.pipes ?? [])
-      .then((pipes) =>
-        pipes.filter((pipe) => get(pipe, 'type') === 'endpoint').map((pipe) => pick(pipe, 'id', 'name'))
-      );
+      .then((pipes) => pipes.filter((pipe) => get(pipe, 'type') === 'endpoint'));
   }
 
   async getNodes(pipeId: string): Promise<any[]> {
     return getBackendSrv()
-      .fetch<{ nodes: any[] }>({ url: `${this.url}/${pipeId}` })
+      .fetch<{ nodes: TinybirdNode[] }>({ url: `${this.url}/${pipeId}` })
       .toPromise()
       .then((res) => res?.data.nodes ?? []);
   }

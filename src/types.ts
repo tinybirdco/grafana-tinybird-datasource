@@ -38,6 +38,33 @@ export interface TinybirdSecureJsonData {
 export interface TinybirdPipe {
   id: string;
   name: string;
+  description: string;
+  endpoint: string;
+  created_at: string;
+  updated_at: string;
+  parent: null;
+  type: string;
+  nodes: Node[];
+  url: string;
+}
+
+export interface TinybirdNode {
+  id: string;
+  name: string;
+  sql: string;
+  description: string;
+  materialized: null;
+  cluster: null;
+  tags: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  version: number;
+  project: null;
+  result: null;
+  ignore_sql_errors: boolean;
+  node_type: string;
+  dependencies: string[];
+  params: TinybirdParam[];
 }
 
 export interface TinybirdParam {
