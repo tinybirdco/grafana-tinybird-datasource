@@ -6,12 +6,15 @@ This plugin enables you to use your published Tinybird APIs with Grafana.
 
 The plugin is not yet available in the Grafana Marketplace and must be installed manually. This requires enabling the Grafana option to install unsigned plugins. To do this, you have two options (you do not need to do both!):
 
-1. Put Grafana into 'development' mode by editing `grafana.ini` and editing the following line: `app_mode = development`
-2. Add the plugin to the whitelist by editing `grafana.ini` and editing the following line: `allow_loading_unsigned_plugins = tinybird-tinybird-datasource`
+1. Put Grafana into 'development' mode by editing either the `grafana.ini` or `defaults.ini` file. [Note: When installing Grafana 10 from a tar file, there is no `grafana.in` and instead there is a `./conf/defaults.ini` file.] Either way, edit the following line: `app_mode = development`
+2. Or, a dd the plugin to the whitelist by editing that same file and update this line: `allow_loading_unsigned_plugins = tinybird-tinybird-datasource`
 
 ## Install the plugin
 
-1. Find the release bundle in the [GitHub releases](https://github.com/tinybirdco/grafana-tinybird-datasource/releases) and install using `grafana-cli`. For example: `./grafana-cli --pluginsDir /var/lib/grafana/plugins --insecure --pluginUrl https://github.com/tinybirdco/grafana-tinybird-datasource/releases/download/1.2.0/tinybird-tinybird-datasource-1.2.0.zip plugins install tinybird-tinybird-datasource`
+1. Find the release bundle in the [GitHub releases](https://github.com/tinybirdco/grafana-tinybird-datasource/releases) and install using `./grafana cli`. For example: `./grafana cli --pluginsDir <YOUR-PLUGIN-PATH> --insecure --pluginUrl https://github.com/tinybirdco/grafana-tinybird-datasource/releases/download/2.0.0/grafana-tinybird-datasource-2.0.0.zip plugins install tinybird-tinybird-datasource`
++ Notes:
+  + Your `<YOUR-PLUGIN-PATH>` depends... In some cases, it is `/var/lib/grafana/plugins`. The `defaults.ini` file references a `data/plugins` folder. When running the Grafana CLI from its `bin` folder, setting the plugin path to `../data/plugins` did the trick and Grafana server was able to find and load the plugin. YMMV.  
+  + With this release the zip file name has a new pattern: `grafana-tinybird-datasource` instead of `tinybird-tinybird-datasource`
 2. Restart Grafana to load the plugin
 3. Open the Data Sources page, and add a new Tinybird Data Source.
 4. In the Data Source config, set the Tinybird endpoint to use. This is specific to the Tinybird region you are in (e.g. `https://api.tinybird.co` or `https://api.us-east.tinybird.co`)
