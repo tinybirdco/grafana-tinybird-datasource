@@ -13,7 +13,8 @@ The plugin is not yet available in the Grafana Marketplace and must be installed
 
 1. Find the release bundle in the [GitHub releases](https://github.com/tinybirdco/grafana-tinybird-datasource/releases) and install using `./grafana cli`. For example: `./grafana cli --pluginsDir <YOUR-PLUGIN-PATH> --insecure --pluginUrl https://github.com/tinybirdco/grafana-tinybird-datasource/releases/download/2.0.0/grafana-tinybird-datasource-2.0.0.zip plugins install tinybird-tinybird-datasource`
 + Notes:
-  + Your `<YOUR-PLUGIN-PATH>` depends... In some cases, it is `/var/lib/grafana/plugins`. The `defaults.ini` file references a `data/plugins` folder. When running the Grafana CLI from its `bin` folder, setting the plugin path to `../data/plugins` did the trick and Grafana server was able to find and load the plugin. YMMV.  
+  + Your `<YOUR-PLUGIN-PATH>` depends... In some cases, it is `/var/lib/grafana/plugins`. The `defaults.ini` file references a `data/plugins` folder. When running the Grafana CLI from its `bin` folder, setting the plugin path to `../data/plugins` did the trick and Grafana server was able to find and load the plugin. YMMV.
+  + You'll know it loaded as expected when you see this `WARN` message when starting Grafana server: `WARN [06-29|14:48:06] Permitting unsigned plugin. This is not recommended logger=plugin.signature.validator pluginID=tinybird-tinybird-datasource`
   + With this release the zip file name has a new pattern: `grafana-tinybird-datasource` instead of `tinybird-tinybird-datasource`
 2. Restart Grafana to load the plugin
 3. Open the Data Sources page, and add a new Tinybird Data Source.
