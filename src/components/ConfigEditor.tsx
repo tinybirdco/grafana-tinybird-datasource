@@ -1,7 +1,7 @@
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, useEffect } from 'react';
 import { InlineField, Input, InlineFieldRow } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { TinybirdOptions, TinybirdSecureJsonData } from '../types';
+import { DEFAULT_HOST, TinybirdOptions, TinybirdSecureJsonData } from '../types';
 
 export default function ConfigEditor({
   options,
@@ -18,6 +18,18 @@ export default function ConfigEditor({
     });
   };
 
+  // Set default host
+  useEffect(() => {
+    onOptionsChange({
+      ...options,
+      secureJsonData: {
+        ...options.secureJsonData!,
+        host: options.secureJsonData?.host ?? DEFAULT_HOST,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="gf-form-group">
       <h3 className="page-heading">Tinybird Options</h3>
@@ -27,10 +39,10 @@ export default function ConfigEditor({
           <Input
             name="host"
             width={50}
-            value={options.secureJsonData?.host ?? ''}
+            value={options.secureJsonData?.host}
             onChange={onOptionChange}
             spellCheck={false}
-            placeholder="https://api.tinybird.co/"
+            placeholder={DEFAULT_HOST}
             required
           />
         </InlineField>

@@ -4,6 +4,8 @@ export const SUPPORTED_OUTPUT_FORMATS = ['table', 'logs', 'timeseries'] as const
 
 export type OutputFormat = (typeof SUPPORTED_OUTPUT_FORMATS)[number];
 
+export const DEFAULT_HOST = 'https://api.tinybird.co' as const;
+
 export interface TinybirdQuery extends DataQuery {
   format: OutputFormat;
   pipeName: string;
