@@ -37,6 +37,7 @@ type TinybirdMeta struct {
 }
 
 type TinybirdResponse struct {
+	Error                  string                   `json:"error"`
 	Meta                   []TinybirdMeta           `json:"meta"`
 	Data                   []map[string]interface{} `json:"data"`
 	Rows                   int                      `json:"rows"`

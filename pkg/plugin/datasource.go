@@ -11,7 +11,6 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/httpclient"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 
-	// "github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
@@ -34,9 +33,7 @@ func NewDatasource(settings backend.DataSourceInstanceSettings) (instancemgmt.In
 		return nil, fmt.Errorf("token is required")
 	}
 
-	if strings.HasSuffix(host, "/") {
-		host = strings.TrimSuffix(host, "/")
-	}
+	host = strings.TrimSuffix(host, "/")
 	host = fmt.Sprintf("%s/v0/pipes/", host)
 
 	opts, err := settings.HTTPClientOptions()
@@ -84,10 +81,6 @@ func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query 
 		return backend.ErrDataResponse(backend.StatusBadRequest, "pipe name is required")
 	}
 
-	if qm.TimeKey == "" {
-		return backend.ErrDataResponse(backend.StatusBadRequest, "time key is required")
-	}
-
 	url := fmt.Sprintf("%s%s.json", d.host, qm.PipeName)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -101,16 +94,43 @@ func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query 
 		if value == "" {
 			continue
 		}
+
+		if strings.Contains(value, "__from") {
+			value = parseTimeVariable(value, query.TimeRange.From)
+		}
+
+		if strings.Contains(value, "__to") {
+			value = parseTimeVariable(value, query.TimeRange.To)
+		}
+
 		q.Add(key, value)
 	}
 
 	req.URL.RawQuery = q.Encode()
 	res, err := d.httpClient.Do(req)
 
+	if err != nil {
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("http new request: %v", err.Error()))
+	}
+
 	tbResponse := &TinybirdResponse{}
 	json.NewDecoder(res.Body).Decode(tbResponse)
 
-	timeField := makeTimeKeyField(qm.TimeKey, tbResponse.Meta, tbResponse.Data)
+	if tbResponse.Error != "" {
+		return backend.ErrDataResponse(backend.StatusBadRequest, tbResponse.Error)
+	}
+
+	if tbResponse.Data == nil || len(tbResponse.Data) == 0 {
+		return backend.ErrDataResponse(backend.StatusBadRequest, "no data")
+	}
+
+	timeKey := qm.TimeKey
+
+	if timeKey == "" {
+		timeKey = findFirstTimeKey(tbResponse.Meta)
+	}
+
+	timeField := makeTimeKeyField(timeKey, tbResponse.Meta, tbResponse.Data)
 
 	if timeField == nil {
 		return backend.ErrDataResponse(backend.StatusBadRequest, "time key not found")

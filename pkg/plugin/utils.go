@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/araddon/dateparse"
@@ -116,4 +118,38 @@ func makeTimeKeyField(timeKey string, meta []TinybirdMeta, data []map[string]int
 
 func unwrapNullable(t string) string {
 	return regexp.MustCompile(`Nullable\((.*)\)`).ReplaceAllString(t, `$1`)
+}
+
+func findFirstTimeKey(meta []TinybirdMeta) string {
+	for _, m := range meta {
+		if timeTypes[m.Type] {
+			return m.Name
+		}
+	}
+
+	return ""
+}
+
+func parseTimeVariable(variable string, value time.Time) string {
+	if !strings.Contains(variable, ":") {
+		// ${__from}
+		return value.String()
+	} else if strings.HasSuffix(variable, ":date}") || strings.HasSuffix(variable, ":date:iso}") {
+		// ${__from:date}	|| ${__from:date:iso}
+		return value.Format(time.RFC3339)
+	} else if strings.HasSuffix(variable, ":date:seconds}") {
+		// ${__from:date:seconds}
+		return strconv.FormatInt(value.Unix(), 10)
+	}
+
+	re := regexp.MustCompile(`date\:(.*)\}`)
+	formatString := re.FindStringSubmatch(variable)[1]
+	formatString = strings.ReplaceAll(formatString, "YYYY", "2006")
+	formatString = strings.ReplaceAll(formatString, "MM", "01")
+	formatString = strings.ReplaceAll(formatString, "DD", "02")
+	formatString = strings.ReplaceAll(formatString, "HH", "15")
+	formatString = strings.ReplaceAll(formatString, "mm", "04")
+	formatString = strings.ReplaceAll(formatString, "ss", "05")
+
+	return value.Format(formatString)
 }
