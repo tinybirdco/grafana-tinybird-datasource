@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/araddon/dateparse"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/httpclient"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
@@ -20,7 +23,7 @@ var (
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
 
-func NewDatasource(settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+func NewDatasource(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	host, hostPresent := settings.DecryptedSecureJSONData["host"]
 
 	if !hostPresent || host == "" {
@@ -71,6 +74,12 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 }
 
 func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query backend.DataQuery) backend.DataResponse {
+	defer func() {
+		if err := recover(); err != nil {
+			log.DefaultLogger.Error("Exception: %v", err)
+		}
+	}()
+
 	var qm TinybirdQuery
 
 	if err := json.Unmarshal(query.JSON, &qm); err != nil {
@@ -130,26 +139,71 @@ func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query 
 		timeKey = findFirstTimeKey(tbResponse.Meta)
 	}
 
-	timeField := makeTimeKeyField(timeKey, tbResponse.Meta, tbResponse.Data)
-
-	if timeField == nil {
-		return backend.ErrDataResponse(backend.StatusBadRequest, "time key not found")
+	if timeKey == "" {
+		return backend.ErrDataResponse(backend.StatusBadRequest, "no time key")
 	}
 
-	frames := []*data.Frame{}
+	var fields []*data.Field
 
 	for _, meta := range tbResponse.Meta {
-		meta.Type = unwrapNullable(meta.Type)
-		if timeTypes[meta.Type] {
-			continue
+		meta.Type = unwrapType(meta.Type)
+
+		if numberTypes[meta.Type] {
+			fields = append(fields, newField[float64](meta.Name))
+		} else if timeTypes[meta.Type] {
+			if meta.Name != timeKey {
+				continue
+			}
+			fields = append(fields, newField[time.Time](meta.Name))
+		} else {
+			fields = append(fields, newField[string](meta.Name))
+		}
+	}
+
+	frame := data.NewFrame("response", fields...)
+
+	for _, row := range tbResponse.Data {
+		var vals []interface{}
+
+		for _, meta := range tbResponse.Meta {
+			meta.Type = unwrapType(meta.Type)
+
+			if row[meta.Name] == nil {
+				vals = append(vals, nil)
+			} else if timeTypes[meta.Type] {
+				if meta.Name != timeKey {
+					continue
+				}
+				val, _ := dateparse.ParseLocal(row[meta.Name].(string))
+				vals = append(vals, &val)
+			} else if numberTypes[meta.Type] {
+				val := row[meta.Name].(float64)
+				vals = append(vals, &val)
+			} else {
+				val := row[meta.Name].(string)
+				vals = append(vals, &val)
+			}
 		}
 
-		frame := data.NewFrame(meta.Name, timeField, makeFieldByMeta(meta, tbResponse.Data))
-		frames = append(frames, frame)
+		frame.AppendRow(vals...)
+	}
+
+	if frame.TimeSeriesSchema().Type == data.TimeSeriesTypeLong {
+		sortByTime(frame, timeKey)
+
+		frame, err = data.LongToWide(frame, &data.FillMissing{Mode: data.FillModeNull})
+
+		if err != nil {
+			return backend.ErrDataResponse(backend.StatusBadRequest, err.Error())
+		}
+	}
+
+	if frame.TimeSeriesSchema().Type == data.TimeSeriesTypeNot {
+		return backend.ErrDataResponse(backend.StatusBadRequest, "no time series data")
 	}
 
 	return backend.DataResponse{
-		Frames: frames,
+		Frames: []*data.Frame{frame},
 	}
 }
 
